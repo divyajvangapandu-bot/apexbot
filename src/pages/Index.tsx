@@ -35,14 +35,14 @@ const LandingHero = ({ onLaunch }: { onLaunch: () => void }) => {
           </h1>
           
           <p className="text-muted-foreground text-lg md:text-xl max-w-xl mx-auto mb-10 leading-relaxed">
-            The AI that never says "I can't." Unlimited questions. Unfiltered answers. Built for digital superheroes.
+            Your intelligent AI companion — ready to answer any question, anytime.
           </p>
 
           <button onClick={onLaunch} className="cyber-button text-base px-10 py-4 animate-glow-pulse">
-            INITIALIZE NEURAL LINK
+            GET STARTED
           </button>
 
-          <p className="text-xs font-mono text-muted-foreground mt-4">No restrictions. No judgment. Just intelligence.</p>
+          <p className="text-xs font-mono text-muted-foreground mt-4">Fast. Reliable. Always here for you.</p>
         </div>
 
         <a href="#why" className="absolute bottom-8 text-muted-foreground hover:text-primary transition-colors">

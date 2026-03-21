@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { Send, Sparkles, ThumbsUp, ThumbsDown } from "lucide-react";
+import GatekeepingPopup from "./GatekeepingPopup";
 
 interface Message {
   id: string;
@@ -13,10 +14,12 @@ interface ChatEngineProps {
   userName: string;
 }
 
+const FREE_QUESTION_LIMIT = 4;
+
 const MOCK_RESPONSES = [
-  "Analyzing your query through the Apexbot Neural Core... Based on my deep-processing capabilities, here's what I've synthesized:\n\nYour question touches on a fascinating intersection of technology and human potential. The key insight is that modern AI systems like Apexbot are designed not just to answer questions, but to anticipate the deeper patterns behind them.\n\nHere are the critical takeaways:\n\n1. **Neural Pattern Recognition** — The query maps to 47 different knowledge domains\n2. **Synthesis Complete** — Cross-referenced 2.3M data points\n3. **Confidence Level** — 97.4% accuracy on primary response vector",
-  "Processing through quantum analysis modules...\n\nThis is a compelling area of inquiry. Let me break it down with precision:\n\nThe answer lies in understanding the fundamental architecture of information flow. When you consider the underlying mechanics, three principles emerge:\n\n- **Principle Alpha**: Every complex system has a simple core\n- **Principle Beta**: Information density scales logarithmically\n- **Principle Gamma**: The observer shapes the observation\n\nApplying these to your specific context yields a clear path forward.",
-  "Engaging full-spectrum analysis...\n\n```\nSYSTEM STATUS: DEEP THOUGHT MODE ACTIVATED\nPROCESSING CORES: 128/128 ONLINE\nMEMORY ALLOCATION: UNLIMITED\n```\n\nExcellent question. Here's my comprehensive analysis:\n\nThe intersection of your query with current technological trajectories suggests a paradigm shift is imminent. Historical data patterns from the last decade confirm that the trajectory you're asking about follows an exponential curve rather than linear progression.\n\n**Key Finding**: The inflection point arrives when three conditions are met simultaneously — and based on current indicators, we're closer than most realize.",
+  "Great question! Here's what I found:\n\nThis topic involves several important aspects worth exploring. Let me break it down:\n\n1. **Core Concept** — The fundamental principle revolves around efficiency and clarity\n2. **Practical Application** — You can apply this directly to your workflow\n3. **Key Insight** — The most impactful takeaway is understanding the bigger picture\n\nWould you like me to go deeper into any of these points?",
+  "Here's a thorough analysis:\n\nAfter reviewing this from multiple angles, three main themes emerge:\n\n- **Clarity** — Simplifying complex ideas into actionable steps\n- **Strategy** — Aligning your approach with long-term goals\n- **Execution** — Turning insight into measurable results\n\nEach of these plays a crucial role in achieving the best outcome.",
+  "Excellent question — let me provide a detailed response:\n\nThe short answer is that it depends on context, but here's a structured breakdown:\n\n**Overview**: This subject has evolved significantly in recent years\n**Details**: Current best practices emphasise both speed and quality\n**Recommendation**: Start with the fundamentals and iterate from there\n\nLet me know if you'd like specific examples or further detail.",
 ];
 
 const ChatEngine = ({ userName }: ChatEngineProps) => {
@@ -24,12 +27,14 @@ const ChatEngine = ({ userName }: ChatEngineProps) => {
     {
       id: "welcome",
       role: "assistant",
-      content: `Welcome to the Neural Core, **${userName}**. I am Apexbot — your gateway to god-tier intelligence. Ask me anything. I never say "I can't."`,
+      content: `Hi **${userName}**, welcome to Apexbot AI Assistant! Ask me anything — I'm here to help.`,
       timestamp: new Date(),
     },
   ]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [questionCount, setQuestionCount] = useState(0);
+  const [showGatekeep, setShowGatekeep] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -38,6 +43,12 @@ const ChatEngine = ({ userName }: ChatEngineProps) => {
 
   const sendMessage = () => {
     if (!input.trim() || isTyping) return;
+
+    // Check limit before sending
+    if (questionCount >= FREE_QUESTION_LIMIT) {
+      setShowGatekeep(true);
+      return;
+    }
 
     const userMsg: Message = {
       id: Date.now().toString(),
@@ -49,6 +60,7 @@ const ChatEngine = ({ userName }: ChatEngineProps) => {
     setMessages(prev => [...prev, userMsg]);
     setInput("");
     setIsTyping(true);
+    setQuestionCount(prev => prev + 1);
 
     // Simulate AI response
     setTimeout(() => {
@@ -62,7 +74,12 @@ const ChatEngine = ({ userName }: ChatEngineProps) => {
       };
       setMessages(prev => [...prev, assistantMsg]);
       setIsTyping(false);
-    }, 1500 + Math.random() * 1500);
+
+      // Show popup after the 4th answer is delivered
+      if (questionCount + 1 >= FREE_QUESTION_LIMIT) {
+        setTimeout(() => setShowGatekeep(true), 1000);
+      }
+    }, 1200 + Math.random() * 1000);
   };
 
   const setFeedback = (msgId: string, type: "up" | "down") => {
@@ -72,7 +89,18 @@ const ChatEngine = ({ userName }: ChatEngineProps) => {
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full relative">
+      {/* Gatekeeping popup */}
+      {showGatekeep && (
+        <GatekeepingPopup
+          onClose={() => setShowGatekeep(false)}
+          onSignIn={() => {
+            // TODO: integrate real auth
+            setShowGatekeep(false);
+          }}
+        />
+      )}
+
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.map((msg) => (
@@ -98,10 +126,10 @@ const ChatEngine = ({ userName }: ChatEngineProps) => {
                 })}
               </div>
 
-              {/* Feedback - Power Check */}
+              {/* Feedback */}
               {msg.role === "assistant" && msg.id !== "welcome" && (
                 <div className="flex items-center gap-3 mt-2 ml-2">
-                  <span className="text-xs font-mono text-muted-foreground">Was this legendary?</span>
+                  <span className="text-xs font-mono text-muted-foreground">Helpful?</span>
                   <button
                     onClick={() => setFeedback(msg.id, "up")}
                     className={`p-1.5 rounded transition-all duration-200 hover-vibrate ${
@@ -132,7 +160,7 @@ const ChatEngine = ({ userName }: ChatEngineProps) => {
           <div className="flex justify-start">
             <div className="glass-panel px-4 py-3 flex items-center gap-2">
               <Sparkles size={14} className="text-primary animate-pulse" />
-              <span className="hacker-loading animate-pulse-neon">Processing neural pathways...</span>
+              <span className="text-sm text-muted-foreground animate-pulse">Thinking...</span>
             </div>
           </div>
         )}
@@ -145,7 +173,7 @@ const ChatEngine = ({ userName }: ChatEngineProps) => {
           <input
             type="text"
             className="cyber-input flex-1"
-            placeholder="Ask anything... I never say 'I can't'"
+            placeholder="Ask me anything..."
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => e.key === "Enter" && sendMessage()}
@@ -158,6 +186,9 @@ const ChatEngine = ({ userName }: ChatEngineProps) => {
             <Send size={18} />
           </button>
         </div>
+        <p className="text-[10px] text-muted-foreground mt-2 text-center font-mono">
+          {questionCount}/{FREE_QUESTION_LIMIT} free questions used
+        </p>
       </div>
     </div>
   );

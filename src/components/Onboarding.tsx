@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 
 interface OnboardingData {
   name: string;
@@ -10,203 +10,154 @@ interface OnboardingProps {
   onComplete: (data: OnboardingData) => void;
 }
 
-const STEPS = [
-  { key: "name", label: "IDENTITY VERIFICATION", prompt: "What is your callsign, Agent?", placeholder: "Enter your name...", type: "text" },
-  { key: "dob", label: "TEMPORAL COORDINATES", prompt: "When did you enter this timeline?", placeholder: "", type: "date" },
-  { key: "mission", label: "MISSION DIRECTIVE", prompt: "What is your primary AI mission?", placeholder: "Describe your quest...", type: "textarea" },
-] as const;
-
-const HackerText = ({ text, isActive }: { text: string; isActive: boolean }) => {
-  const [display, setDisplay] = useState("");
-  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*";
-
-  useEffect(() => {
-    if (!isActive) return;
-    let iteration = 0;
-    const interval = setInterval(() => {
-      setDisplay(
-        text.split("").map((char, i) => {
-          if (i < iteration) return char;
-          return chars[Math.floor(Math.random() * chars.length)];
-        }).join("")
-      );
-      iteration += 1 / 2;
-      if (iteration >= text.length) clearInterval(interval);
-    }, 40);
-    return () => clearInterval(interval);
-  }, [text, isActive]);
-
-  return <span>{display || text}</span>;
-};
+const PURPOSE_OPTIONS = [
+  "Research & Learning",
+  "Creative Writing & Content",
+  "Coding & Development",
+  "Business & Productivity",
+  "Data Analysis & Insights",
+  "General Q&A",
+];
 
 const Onboarding = ({ onComplete }: OnboardingProps) => {
-  const [step, setStep] = useState(-1); // -1 = boot sequence
+  const [step, setStep] = useState(0);
   const [data, setData] = useState<OnboardingData>({ name: "", dob: "", mission: "" });
-  const [bootLines, setBootLines] = useState<string[]>([]);
   const [isTransitioning, setIsTransitioning] = useState(false);
 
-  const bootSequence = [
-    "> Initializing Apexbot Neural Core...",
-    "> Loading quantum processing modules...",
-    "> Establishing secure neural link...",
-    "> Calibrating visual synthesis engine...",
-    "> All systems operational.",
-    "> IDENTITY CHECK REQUIRED.",
-  ];
+  const handleNext = () => {
+    if (step === 0 && !data.name.trim()) return;
+    if (step === 1 && !data.dob) return;
+    if (step === 2 && !data.mission) return;
 
-  useEffect(() => {
-    if (step !== -1) return;
-    let i = 0;
-    const interval = setInterval(() => {
-      if (i < bootSequence.length) {
-        const line = bootSequence[i];
-        if (line) {
-          setBootLines(prev => [...prev, line]);
-        }
-        i++;
-      } else {
-        clearInterval(interval);
-        setTimeout(() => {
-          setIsTransitioning(true);
-          setTimeout(() => {
-            setStep(0);
-            setIsTransitioning(false);
-          }, 500);
-        }, 800);
-      }
-    }, 400);
-    return () => clearInterval(interval);
-  }, [step]);
-
-  const handleNext = useCallback(() => {
-    const currentKey = STEPS[step]?.key;
-    if (currentKey && !data[currentKey as keyof OnboardingData]) return;
-    
     setIsTransitioning(true);
     setTimeout(() => {
-      if (step < STEPS.length - 1) {
+      if (step < 2) {
         setStep(s => s + 1);
       } else {
         onComplete(data);
       }
       setIsTransitioning(false);
-    }, 500);
-  }, [step, data, onComplete]);
+    }, 400);
+  };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
+    if (e.key === "Enter") {
       e.preventDefault();
       handleNext();
     }
   };
 
-  const currentStep = STEPS[step];
-  const progress = step >= 0 ? ((step + 1) / STEPS.length) * 100 : 0;
+  const progress = ((step + 1) / 3) * 100;
 
   return (
-    <div className="fixed inset-0 nebula-gradient flex items-center justify-center overflow-hidden scanline-overlay">
-      {/* Floating orbs */}
-      <div className="absolute top-1/4 left-1/4 w-64 h-64 rounded-full opacity-20"
-        style={{
-          background: "radial-gradient(circle, hsl(185 100% 50% / 0.3), transparent 70%)",
-          animation: "floatOrb 8s ease-in-out infinite",
-        }}
+    <div className="fixed inset-0 nebula-gradient flex items-center justify-center overflow-hidden px-6">
+      {/* Subtle background orbs */}
+      <div className="absolute top-1/4 left-1/4 w-64 h-64 rounded-full opacity-10"
+        style={{ background: "radial-gradient(circle, hsl(var(--cyan-glow) / 0.3), transparent 70%)", animation: "floatOrb 8s ease-in-out infinite" }}
       />
-      <div className="absolute bottom-1/3 right-1/4 w-96 h-96 rounded-full opacity-15"
-        style={{
-          background: "radial-gradient(circle, hsl(270 80% 60% / 0.3), transparent 70%)",
-          animation: "floatOrb 10s ease-in-out infinite reverse",
-        }}
+      <div className="absolute bottom-1/3 right-1/4 w-96 h-96 rounded-full opacity-10"
+        style={{ background: "radial-gradient(circle, hsl(var(--purple-glow) / 0.3), transparent 70%)", animation: "floatOrb 10s ease-in-out infinite reverse" }}
       />
 
-      <div className={`w-full max-w-lg px-6 transition-all duration-500 ${isTransitioning ? "opacity-0 scale-95 blur-sm" : "opacity-100 scale-100 blur-0"}`}>
-        
-        {/* Boot sequence */}
-        {step === -1 && (
-          <div className="glass-panel p-8">
-            <h2 className="font-display text-xl neon-text-cyan mb-6 tracking-widest">APEXBOT v1.0</h2>
-            <div className="space-y-2 font-mono text-sm">
-              {bootLines.map((line, i) => (
-                <div key={i} className="animate-fade-in-up text-muted-foreground" style={{ animationDelay: `${i * 0.05}s` }}>
-                  {line.includes("REQUIRED") ? (
-                    <span className="neon-text-cyan font-bold">{line}</span>
-                  ) : line.includes("operational") ? (
-                    <span className="text-green-400">{line}</span>
-                  ) : (
-                    line
-                  )}
-                </div>
-              ))}
-            </div>
+      <div className={`w-full max-w-lg transition-all duration-400 ${isTransitioning ? "opacity-0 scale-95" : "opacity-100 scale-100"}`}>
+        {/* Progress */}
+        <div className="mb-8 space-y-2">
+          <div className="flex justify-between text-xs font-mono text-muted-foreground tracking-wide">
+            <span>Step {step + 1} of 3</span>
+            <span>{step === 0 ? "Your Name" : step === 1 ? "Date of Birth" : "Your Purpose"}</span>
           </div>
-        )}
-
-        {/* Onboarding steps */}
-        {step >= 0 && currentStep && (
-          <div className="space-y-8">
-            {/* Progress */}
-            <div className="space-y-2">
-              <div className="flex justify-between font-mono text-xs text-muted-foreground tracking-widest">
-                <span>STEP {step + 1}/{STEPS.length}</span>
-                <span>{currentStep.label}</span>
-              </div>
-              <div className="h-0.5 bg-muted rounded-full overflow-hidden">
-                <div
-                  className="h-full rounded-full transition-all duration-700 ease-out"
-                  style={{
-                    width: `${progress}%`,
-                    background: "linear-gradient(90deg, hsl(185 100% 50%), hsl(270 80% 60%))",
-                    boxShadow: "0 0 10px hsl(185 100% 50% / 0.5)",
-                  }}
-                />
-              </div>
-            </div>
-
-            {/* Question */}
-            <div className="glass-panel-strong p-8 animate-fade-in-up">
-              <h2 className="font-display text-2xl md:text-3xl animate-pulse-neon mb-2 leading-tight" style={{ lineHeight: "1.2" }}>
-                <HackerText text={currentStep.prompt} isActive={!isTransitioning} />
-              </h2>
-              <p className="text-muted-foreground text-sm font-mono mb-8 tracking-wide">
-                {currentStep.label}
-              </p>
-
-              {currentStep.type === "textarea" ? (
-                <textarea
-                  className="cyber-input min-h-[120px] resize-none"
-                  placeholder={currentStep.placeholder}
-                  value={data[currentStep.key as keyof OnboardingData]}
-                  onChange={e => setData(d => ({ ...d, [currentStep.key]: e.target.value }))}
-                  onKeyDown={handleKeyDown}
-                  autoFocus
-                />
-              ) : (
-                <input
-                  type={currentStep.type}
-                  className="cyber-input"
-                  placeholder={currentStep.placeholder}
-                  value={data[currentStep.key as keyof OnboardingData]}
-                  onChange={e => setData(d => ({ ...d, [currentStep.key]: e.target.value }))}
-                  onKeyDown={handleKeyDown}
-                  autoFocus
-                />
-              )}
-
-              <div className="flex justify-between items-center mt-6">
-                <span className="text-xs font-mono text-muted-foreground">
-                  Press Enter to continue
-                </span>
-                <button
-                  onClick={handleNext}
-                  disabled={!data[currentStep.key as keyof OnboardingData]}
-                  className="cyber-button disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:scale-100"
-                >
-                  {step === STEPS.length - 1 ? "INITIALIZE" : "NEXT →"}
-                </button>
-              </div>
-            </div>
+          <div className="h-0.5 bg-muted rounded-full overflow-hidden">
+            <div
+              className="h-full rounded-full transition-all duration-700 ease-out"
+              style={{
+                width: `${progress}%`,
+                background: "linear-gradient(90deg, hsl(var(--cyan-glow)), hsl(var(--purple-glow)))",
+                boxShadow: "0 0 10px hsl(var(--cyan-glow) / 0.5)",
+              }}
+            />
           </div>
-        )}
+        </div>
+
+        <div className="glass-panel-strong p-8 animate-fade-in-up">
+          {/* Step 0: Name */}
+          {step === 0 && (
+            <>
+              <h2 className="font-display text-2xl md:text-3xl text-foreground mb-2">What's your name?</h2>
+              <p className="text-muted-foreground text-sm mb-6">Let us know what to call you.</p>
+              <input
+                type="text"
+                className="cyber-input"
+                placeholder="Enter your name"
+                value={data.name}
+                onChange={e => setData(d => ({ ...d, name: e.target.value }))}
+                onKeyDown={handleKeyDown}
+                autoFocus
+              />
+            </>
+          )}
+
+          {/* Step 1: DOB */}
+          {step === 1 && (
+            <>
+              <h2 className="font-display text-2xl md:text-3xl text-foreground mb-2">When were you born?</h2>
+              <p className="text-muted-foreground text-sm mb-6">Your date of birth helps us personalise your experience.</p>
+              <input
+                type="date"
+                className="cyber-input"
+                value={data.dob}
+                onChange={e => setData(d => ({ ...d, dob: e.target.value }))}
+                onKeyDown={handleKeyDown}
+                autoFocus
+              />
+            </>
+          )}
+
+          {/* Step 2: Purpose */}
+          {step === 2 && (
+            <>
+              <h2 className="font-display text-2xl md:text-3xl text-foreground mb-2">What will you use Apexbot for?</h2>
+              <p className="text-muted-foreground text-sm mb-6">Choose your primary purpose.</p>
+              <div className="grid grid-cols-1 gap-2">
+                {PURPOSE_OPTIONS.map(option => (
+                  <button
+                    key={option}
+                    onClick={() => setData(d => ({ ...d, mission: option }))}
+                    className={`text-left px-4 py-3 rounded-lg border text-sm transition-all duration-200 ${
+                      data.mission === option
+                        ? "border-primary bg-primary/10 text-primary neon-border-cyan"
+                        : "border-border/50 text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                    }`}
+                  >
+                    {option}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+
+          {/* Navigation */}
+          <div className="flex justify-between items-center mt-8">
+            {step > 0 ? (
+              <button
+                onClick={() => { setIsTransitioning(true); setTimeout(() => { setStep(s => s - 1); setIsTransitioning(false); }, 400); }}
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                ← Back
+              </button>
+            ) : <span />}
+            <button
+              onClick={handleNext}
+              disabled={
+                (step === 0 && !data.name.trim()) ||
+                (step === 1 && !data.dob) ||
+                (step === 2 && !data.mission)
+              }
+              className="cyber-button disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:scale-100"
+            >
+              {step === 2 ? "Get Started" : "Continue"}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
