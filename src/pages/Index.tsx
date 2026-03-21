@@ -26,7 +26,7 @@ const LandingHero = ({ onLaunch }: { onLaunch: () => void }) => {
         <div className={`text-center max-w-3xl relative z-10 transition-all duration-1000 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}>
           <div className="flex items-center justify-center gap-2 mb-6">
             <Zap size={28} className="text-primary" />
-            <span className="font-display text-lg tracking-[0.4em] neon-text-cyan">APEXBOT</span>
+            <span className="font-display text-lg tracking-[0.4em] neon-text-cyan">APEXBOT AI ASSISTANT</span>
           </div>
           
           <h1 className="font-display text-5xl md:text-7xl text-foreground mb-6 text-balance" style={{ lineHeight: "1.05" }}>
