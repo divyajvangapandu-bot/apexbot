@@ -59,7 +59,10 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
     let i = 0;
     const interval = setInterval(() => {
       if (i < bootSequence.length) {
-        setBootLines(prev => [...prev, bootSequence[i]]);
+        const line = bootSequence[i];
+        if (line) {
+          setBootLines(prev => [...prev, line]);
+        }
         i++;
       } else {
         clearInterval(interval);
