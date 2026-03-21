@@ -23,7 +23,7 @@ const Dashboard = ({ userName }: DashboardProps) => {
           </button>
           <div className="flex items-center gap-2">
             <Zap size={18} className="text-primary" />
-            <span className="font-display text-sm tracking-widest neon-text-cyan">APEXBOT</span>
+            <span className="font-display text-sm tracking-widest neon-text-cyan">APEXBOT AI</span>
           </div>
         </div>
         <div className="flex items-center gap-2">
