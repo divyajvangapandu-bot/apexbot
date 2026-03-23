@@ -1,4 +1,4 @@
-import { Search, BookOpen, CheckCircle, PenTool, RefreshCw, Type, Spell, FileText, StickyNote, ListTodo, Mail, Languages, ArrowDownToLine, Calculator, Code, Brain } from "lucide-react";
+import { Search, BookOpen, CheckCircle, PenTool, RefreshCw, Type, SpellCheck, FileText, StickyNote, ListTodo, Mail, Languages, ArrowDownToLine, Calculator, Code, Brain } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const categories = [
