@@ -16,7 +16,7 @@ const categories = [
       { icon: PenTool, label: "Text Generation" },
       { icon: RefreshCw, label: "Rewriting" },
       { icon: Type, label: "Tone Adjustment" },
-      { icon: Spell, label: "Grammar Fix" },
+      { icon: SpellCheck, label: "Grammar Fix" },
     ],
   },
   {
