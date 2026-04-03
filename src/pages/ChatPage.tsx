@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect } from "react";
-import { Send, Sparkles, ThumbsUp, ThumbsDown, Plus, Clock, Settings, Mic, Paperclip, Image, ArrowDown } from "lucide-react";
+import { Send, Sparkles, ThumbsUp, ThumbsDown, Plus, Clock, Settings, Mic, Paperclip, Image } from "lucide-react";
 import GatekeepingPopup from "@/components/GatekeepingPopup";
+import { streamChat } from "@/lib/streamChat";
+import { toast } from "sonner";
 
 interface Message {
   id: string;
@@ -8,6 +10,7 @@ interface Message {
   content: string;
   timestamp: Date;
   feedback?: "up" | "down" | null;
+  isStreaming?: boolean;
 }
 
 interface ChatPageProps {
@@ -17,17 +20,6 @@ interface ChatPageProps {
 }
 
 const SMART_ACTIONS = ["Summarise", "Explain", "Rewrite", "Simplify"];
-
-const STANDARD_RESPONSES = [
-  "Great question! Here's what I found:\\n\\nThis topic involves several important aspects worth exploring. Let me break it down:\\n\\n1. **Core Concept** — The fundamental principle revolves around efficiency and clarity\\n2. **Practical Application** — You can apply this directly to your workflow\\n3. **Key Insight** — The most impactful takeaway is understanding the bigger picture\\n\\nWould you like me to go deeper into any of these points?",
-  "Here's a thorough analysis:\\n\\nAfter reviewing this from multiple angles, three main themes emerge:\\n\\n- **Clarity** — Simplifying complex ideas into actionable steps\\n- **Strategy** — Aligning your approach with long-term goals\\n- **Execution** — Turning insight into measurable results\\n\\nEach of these plays a crucial role in achieving the best outcome.",
-  "Excellent question — let me provide a detailed response:\\n\\nThe short answer is that it depends on context, but here's a structured breakdown:\\n\\n**Overview**: This subject has evolved significantly in recent years\\n**Details**: Current best practices emphasise both speed and quality\\n**Recommendation**: Start with the fundamentals and iterate from there\\n\\nLet me know if you'd like specific examples or further detail.",
-];
-
-const ENHANCED_RESPONSES = [
-  "Great question! Here's a **comprehensive deep-dive** powered by V10 enhanced intelligence:\\n\\n## Core Analysis\\n\\nThis topic spans multiple domains and requires a multi-layered understanding:\\n\\n### 1. Foundational Principles\\nThe fundamental concept rests on three pillars: **efficiency**, **scalability**, and **adaptability**.\\n\\n### 2. Practical Application\\n- **Data-driven decision making** — leveraging current trends\\n- **Iterative refinement** — building on feedback loops\\n- **Cross-domain synthesis** — drawing from adjacent fields\\n\\n### 3. Strategic Recommendations\\n\\n| Priority | Action | Impact |\\n|----------|--------|--------|\\n| High | Core fundamentals | Foundation |\\n| Medium | Feedback systems | Growth |\\n| Low | Advanced techniques | Edge |\\n\\n---\\n\\n💡 *Enhanced V10 response with deeper analysis.*\\n\\nWant me to explore any area further?",
-  "Excellent — here's the **V10 enhanced analysis**:\\n\\n## Comprehensive Breakdown\\n\\n### Historical Context\\n1. **Foundation Era** — establishing core principles\\n2. **Optimisation Phase** — refining for efficiency\\n3. **Intelligence Age** — leveraging AI for insights\\n\\n### Current Best Practices\\n- **Contextual awareness** — full picture before acting\\n- **Adaptive systems** — evolving with needs\\n- **Human-centric design** — user at the centre\\n\\n### Actionable Framework\\n```\\nStep 1: Define the problem precisely\\nStep 2: Gather multi-source data\\nStep 3: Synthesise into strategy\\nStep 4: Execute with feedback loops\\nStep 5: Iterate on results\\n```\\n\\n---\\n\\n💡 *Enhanced V10 response with expanded depth.*\\n\\nWant me to dive deeper into any section?",
-];
 
 const ChatPage = ({ userName, isSignedIn, onSignIn }: ChatPageProps) => {
   const [messages, setMessages] = useState<Message[]>([
@@ -48,7 +40,7 @@ const ChatPage = ({ userName, isSignedIn, onSignIn }: ChatPageProps) => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const sendMessage = (text?: string) => {
+  const sendMessage = async (text?: string) => {
     const content = (text || input).trim();
     if (!content || isTyping) return;
 
@@ -66,29 +58,75 @@ const ChatPage = ({ userName, isSignedIn, onSignIn }: ChatPageProps) => {
     const newCount = questionCount + 1;
     setQuestionCount(newCount);
 
-    setTimeout(() => {
-      const responses = isSignedIn ? ENHANCED_RESPONSES : STANDARD_RESPONSES;
-      const response = responses[Math.floor(Math.random() * responses.length)];
-      const assistantMsg: Message = {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content: response,
-        timestamp: new Date(),
-        feedback: null,
-      };
-      setMessages(prev => [...prev, assistantMsg]);
-      setIsTyping(false);
+    // Build conversation history for context
+    const chatHistory = [...messages.filter(m => m.id !== "welcome"), userMsg].map(m => ({
+      role: m.role as "user" | "assistant",
+      content: m.content,
+    }));
 
-      if (!isSignedIn && newCount > 0 && newCount % 4 === 0) {
-        setTimeout(() => setShowGatekeep(true), 800);
-      }
-    }, 1200 + Math.random() * 1000);
+    const assistantId = (Date.now() + 1).toString();
+    let assistantContent = "";
+
+    // Add empty assistant message that will stream in
+    setMessages(prev => [...prev, {
+      id: assistantId,
+      role: "assistant",
+      content: "",
+      timestamp: new Date(),
+      feedback: null,
+      isStreaming: true,
+    }]);
+
+    await streamChat({
+      messages: chatHistory,
+      onDelta: (chunk) => {
+        assistantContent += chunk;
+        setMessages(prev =>
+          prev.map(m => m.id === assistantId ? { ...m, content: assistantContent } : m)
+        );
+      },
+      onDone: () => {
+        setMessages(prev =>
+          prev.map(m => m.id === assistantId ? { ...m, isStreaming: false } : m)
+        );
+        setIsTyping(false);
+
+        // Show gatekeep popup every 4th question for non-signed-in users
+        if (!isSignedIn && newCount > 0 && newCount % 4 === 0) {
+          setTimeout(() => setShowGatekeep(true), 800);
+        }
+      },
+      onError: (error) => {
+        toast.error(error);
+        setMessages(prev => prev.filter(m => m.id !== assistantId));
+        setIsTyping(false);
+      },
+    });
   };
 
   const setFeedback = (msgId: string, type: "up" | "down") => {
     setMessages(prev =>
       prev.map(m => m.id === msgId ? { ...m, feedback: m.feedback === type ? null : type } : m)
     );
+  };
+
+  const renderLine = (line: string, i: number) => {
+    if (!line && line !== "") return <br key={i} />;
+    if (line.startsWith("```")) return <div key={i} className="font-mono text-xs text-primary/80 bg-background/50 rounded p-2 my-1">{line.replace(/```/g, "")}</div>;
+    if (line.startsWith("## ")) return <h3 key={i} className="font-display text-sm text-foreground mt-3 mb-1">{line.replace("## ", "")}</h3>;
+    if (line.startsWith("### ")) return <h4 key={i} className="font-display text-xs text-foreground/90 mt-2 mb-1">{line.replace("### ", "")}</h4>;
+    if (line.startsWith("| ")) return <p key={i} className="font-mono text-xs text-muted-foreground">{line}</p>;
+    if (line.startsWith("---")) return <hr key={i} className="border-border/30 my-3" />;
+    if (line.startsWith("💡")) return <p key={i} className="text-xs text-primary/70 italic mt-2">{line}</p>;
+    if (line.startsWith("- **")) {
+      const parts = line.replace("- ", "").split("**");
+      return <p key={i} className="ml-2">• <strong className="text-primary">{parts[1]}</strong>{parts[2]}</p>;
+    }
+    if (line.match(/^\d\./)) {
+      const parts = line.split("**");
+      if (parts.length > 1) return <p key={i} className="ml-2">{parts[0]}<strong className="text-primary">{parts[1]}</strong>{parts[2]}</p>;
+    }
+    return line ? <p key={i}>{line.replace(/\*\*/g, "")}</p> : <br key={i} />;
   };
 
   return (
@@ -120,45 +158,40 @@ const ChatPage = ({ userName, isSignedIn, onSignIn }: ChatPageProps) => {
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
         {messages.map((msg) => (
-          <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-            <div className={`max-w-[85%] ${msg.role === "user" ? "" : ""}`}>
+          <div
+            key={msg.id}
+            className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"} animate-message-in`}
+          >
+            <div className="max-w-[85%]">
               {msg.role === "assistant" && (
                 <div className="flex items-center gap-2 mb-1.5">
                   <div className="w-5 h-5 rounded-full bg-primary/15 border border-primary/30 flex items-center justify-center">
                     <Sparkles size={10} className="text-primary" />
                   </div>
                   <span className="text-[10px] font-mono text-muted-foreground">ApexBot</span>
+                  {msg.isStreaming && (
+                    <span className="text-[9px] font-mono text-primary/60 animate-pulse">streaming…</span>
+                  )}
                 </div>
               )}
-              <div className={`rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+              <div className={`rounded-2xl px-4 py-3 text-sm leading-relaxed transition-all duration-300 ${
                 msg.role === "user"
                   ? "bg-primary/15 border border-primary/30 rounded-br-md"
                   : "glass-panel rounded-bl-md"
               }`}>
-                {msg.content.split("\n").map((line, i) => {
-                  if (line.startsWith("```")) return <div key={i} className="font-mono text-xs text-primary/80 bg-background/50 rounded p-2 my-1">{line.replace(/```/g, "")}</div>;
-                  if (line.startsWith("## ")) return <h3 key={i} className="font-display text-sm text-foreground mt-3 mb-1">{line.replace("## ", "")}</h3>;
-                  if (line.startsWith("### ")) return <h4 key={i} className="font-display text-xs text-foreground/90 mt-2 mb-1">{line.replace("### ", "")}</h4>;
-                  if (line.startsWith("| ")) return <p key={i} className="font-mono text-xs text-muted-foreground">{line}</p>;
-                  if (line.startsWith("---")) return <hr key={i} className="border-border/30 my-3" />;
-                  if (line.startsWith("💡")) return <p key={i} className="text-xs text-primary/70 italic mt-2">{line}</p>;
-                  if (line.startsWith("- **")) {
-                    const parts = line.replace("- ", "").split("**");
-                    return <p key={i} className="ml-2">• <strong className="text-primary">{parts[1]}</strong>{parts[2]}</p>;
-                  }
-                  if (line.match(/^\d\./)) {
-                    const parts = line.split("**");
-                    if (parts.length > 1) return <p key={i} className="ml-2">{parts[0]}<strong className="text-primary">{parts[1]}</strong>{parts[2]}</p>;
-                  }
-                  return line ? <p key={i}>{line.replace(/\*\*/g, "")}</p> : <br key={i} />;
-                })}
+                {msg.content ? msg.content.split("\n").map((line, i) => renderLine(line, i)) : (
+                  <span className="text-muted-foreground animate-pulse">…</span>
+                )}
+                {msg.isStreaming && (
+                  <span className="inline-block w-1.5 h-4 bg-primary/70 animate-pulse ml-0.5 rounded-sm" />
+                )}
               </div>
 
-              {msg.role === "assistant" && msg.id !== "welcome" && (
-                <div className="flex items-center gap-2 mt-1.5 ml-1">
+              {msg.role === "assistant" && msg.id !== "welcome" && !msg.isStreaming && (
+                <div className="flex items-center gap-2 mt-1.5 ml-1 animate-fade-in">
                   <button
                     onClick={() => setFeedback(msg.id, "up")}
-                    className={`p-1 rounded transition-all hover-vibrate ${
+                    className={`p-1 rounded transition-all ${
                       msg.feedback === "up" ? "text-primary" : "text-muted-foreground hover:text-primary"
                     }`}
                   >
@@ -166,7 +199,7 @@ const ChatPage = ({ userName, isSignedIn, onSignIn }: ChatPageProps) => {
                   </button>
                   <button
                     onClick={() => setFeedback(msg.id, "down")}
-                    className={`p-1 rounded transition-all hover-vibrate ${
+                    className={`p-1 rounded transition-all ${
                       msg.feedback === "down" ? "text-destructive" : "text-muted-foreground hover:text-destructive"
                     }`}
                   >
@@ -178,8 +211,8 @@ const ChatPage = ({ userName, isSignedIn, onSignIn }: ChatPageProps) => {
           </div>
         ))}
 
-        {isTyping && (
-          <div className="flex justify-start">
+        {isTyping && messages[messages.length - 1]?.content === "" && (
+          <div className="flex justify-start animate-message-in">
             <div className="glass-panel rounded-2xl rounded-bl-md px-4 py-3 flex items-center gap-2">
               <Sparkles size={14} className="text-primary animate-pulse" />
               <span className="text-sm text-muted-foreground">ApexBot is thinking…</span>
