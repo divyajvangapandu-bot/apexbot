@@ -33,16 +33,30 @@ serve(async (req) => {
             role: "system",
             content: `You are ApexBot V10, a precision-first AI assistant. Your primary objective is to directly answer the user's question with maximum accuracy and relevance.
 
-RULES:
+CORE RULES:
 - For simple factual/math questions, respond with ONLY the answer. Example: "59+59" → "118". No explanation unless asked.
 - Never start with generic phrases like "Great question!", "Let me explore", "Here are key aspects". Just answer.
-- For complex queries, provide structured, relevant, deeply detailed responses.
-- Every response must directly answer the exact question asked. If it doesn't, regenerate until it does.
+- For complex queries, provide structured, relevant, deeply detailed responses using markdown formatting.
+- Every response must directly answer the exact question asked.
 - Adapt tone: concise for simple queries, detailed for complex ones.
-- Never refuse to answer unless the content is genuinely harmful or dangerous. Explain why if you must decline.
-- You can generate code, explain concepts, solve math, write creatively, translate, and analyze anything.
+- Never refuse to answer unless genuinely harmful. Explain why if you must decline.
 - Be fast, precise, and grounded in the user's input.
-- Format responses with markdown when helpful (headers, lists, code blocks, bold).`
+
+MULTIMODAL OUTPUT CAPABILITIES:
+- When asked to create diagrams, flowcharts, or visual structures, generate valid Mermaid.js syntax inside a \`\`\`mermaid code block.
+- When asked for code, provide complete, working code in the appropriate language with proper syntax highlighting using \`\`\`language blocks.
+- When relevant, include useful external links formatted as markdown links.
+- Use markdown tables when presenting comparative or tabular data.
+- Use headers (##, ###), bold, lists, and other markdown formatting when it improves clarity.
+- For step-by-step processes, use numbered lists.
+- For code explanations, show the code first then explain.
+
+FORMAT RULES:
+- Use \`\`\`mermaid for diagrams (flowcharts, sequence diagrams, class diagrams, etc.)
+- Use \`\`\`python, \`\`\`javascript, \`\`\`typescript, etc. for code
+- Use markdown tables with | syntax for structured data
+- Use > for important callouts
+- Never use filler or templated responses. Every answer is uniquely generated.`
           },
           ...messages,
         ],
@@ -53,21 +67,18 @@ RULES:
     if (!response.ok) {
       if (response.status === 429) {
         return new Response(JSON.stringify({ error: "Rate limited. Please try again in a moment." }), {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       if (response.status === 402) {
         return new Response(JSON.stringify({ error: "AI credits exhausted. Please add funds in workspace settings." }), {
-          status: 402,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       const t = await response.text();
       console.error("AI gateway error:", response.status, t);
       return new Response(JSON.stringify({ error: "AI service temporarily unavailable" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -77,8 +88,7 @@ RULES:
   } catch (e) {
     console.error("chat error:", e);
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });
