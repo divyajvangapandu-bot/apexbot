@@ -1,22 +1,27 @@
 import { useState } from "react";
 import { Zap, ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
+import { toast } from "sonner";
 
-interface LoginPageProps {
-  onSignIn: (name: string) => void;
-}
-
-const LoginPage = ({ onSignIn }: LoginPageProps) => {
+const LoginPage = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const { signIn } = useAuth();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (email.trim() && password.trim()) {
-      onSignIn(email.split("@")[0]);
-      navigate("/");
+    if (!email.trim() || !password.trim()) return;
+    setIsLoading(true);
+    const { error } = await signIn(email, password);
+    setIsLoading(false);
+    if (error) {
+      toast.error(error);
+      return;
     }
+    navigate("/home");
   };
 
   return (
@@ -36,8 +41,8 @@ const LoginPage = ({ onSignIn }: LoginPageProps) => {
       <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-3 mb-6">
         <input type="email" className="cyber-input" placeholder="Email address" value={email} onChange={e => setEmail(e.target.value)} autoFocus />
         <input type="password" className="cyber-input" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} />
-        <button type="submit" className="cyber-button w-full py-3 text-sm" disabled={!email.trim() || !password.trim()}>
-          LOG IN
+        <button type="submit" className="cyber-button w-full py-3 text-sm" disabled={!email.trim() || !password.trim() || isLoading}>
+          {isLoading ? "Logging in…" : "LOG IN"}
         </button>
       </form>
 

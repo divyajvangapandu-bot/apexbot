@@ -2,7 +2,11 @@ import { useState, useRef, useEffect } from "react";
 import { Send, Sparkles, ThumbsUp, ThumbsDown, Plus, Clock, Settings, Mic, Paperclip, Image } from "lucide-react";
 import GatekeepingPopup from "@/components/GatekeepingPopup";
 import { streamChat } from "@/lib/streamChat";
+import { useAuth } from "@/hooks/useAuth";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 interface Message {
   id: string;
@@ -13,15 +17,14 @@ interface Message {
   isStreaming?: boolean;
 }
 
-interface ChatPageProps {
-  userName: string;
-  isSignedIn: boolean;
-  onSignIn: () => void;
-}
-
 const SMART_ACTIONS = ["Summarise", "Explain", "Rewrite", "Simplify"];
 
-const ChatPage = ({ userName, isSignedIn, onSignIn }: ChatPageProps) => {
+const ChatPage = () => {
+  const { user, profile } = useAuth();
+  const navigate = useNavigate();
+  const isSignedIn = !!user;
+  const userName = profile?.name || "there";
+
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "welcome",
@@ -44,13 +47,7 @@ const ChatPage = ({ userName, isSignedIn, onSignIn }: ChatPageProps) => {
     const content = (text || input).trim();
     if (!content || isTyping) return;
 
-    const userMsg: Message = {
-      id: Date.now().toString(),
-      role: "user",
-      content,
-      timestamp: new Date(),
-    };
-
+    const userMsg: Message = { id: Date.now().toString(), role: "user", content, timestamp: new Date() };
     setMessages(prev => [...prev, userMsg]);
     setInput("");
     setIsTyping(true);
@@ -58,7 +55,6 @@ const ChatPage = ({ userName, isSignedIn, onSignIn }: ChatPageProps) => {
     const newCount = questionCount + 1;
     setQuestionCount(newCount);
 
-    // Build conversation history for context
     const chatHistory = [...messages.filter(m => m.id !== "welcome"), userMsg].map(m => ({
       role: m.role as "user" | "assistant",
       content: m.content,
@@ -67,31 +63,19 @@ const ChatPage = ({ userName, isSignedIn, onSignIn }: ChatPageProps) => {
     const assistantId = (Date.now() + 1).toString();
     let assistantContent = "";
 
-    // Add empty assistant message that will stream in
     setMessages(prev => [...prev, {
-      id: assistantId,
-      role: "assistant",
-      content: "",
-      timestamp: new Date(),
-      feedback: null,
-      isStreaming: true,
+      id: assistantId, role: "assistant", content: "", timestamp: new Date(), feedback: null, isStreaming: true,
     }]);
 
     await streamChat({
       messages: chatHistory,
       onDelta: (chunk) => {
         assistantContent += chunk;
-        setMessages(prev =>
-          prev.map(m => m.id === assistantId ? { ...m, content: assistantContent } : m)
-        );
+        setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: assistantContent } : m));
       },
       onDone: () => {
-        setMessages(prev =>
-          prev.map(m => m.id === assistantId ? { ...m, isStreaming: false } : m)
-        );
+        setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, isStreaming: false } : m));
         setIsTyping(false);
-
-        // Show gatekeep popup every 4th question for non-signed-in users
         if (!isSignedIn && newCount > 0 && newCount % 4 === 0) {
           setTimeout(() => setShowGatekeep(true), 800);
         }
@@ -105,63 +89,26 @@ const ChatPage = ({ userName, isSignedIn, onSignIn }: ChatPageProps) => {
   };
 
   const setFeedback = (msgId: string, type: "up" | "down") => {
-    setMessages(prev =>
-      prev.map(m => m.id === msgId ? { ...m, feedback: m.feedback === type ? null : type } : m)
-    );
-  };
-
-  const renderLine = (line: string, i: number) => {
-    if (!line && line !== "") return <br key={i} />;
-    if (line.startsWith("```")) return <div key={i} className="font-mono text-xs text-primary/80 bg-background/50 rounded p-2 my-1">{line.replace(/```/g, "")}</div>;
-    if (line.startsWith("## ")) return <h3 key={i} className="font-display text-sm text-foreground mt-3 mb-1">{line.replace("## ", "")}</h3>;
-    if (line.startsWith("### ")) return <h4 key={i} className="font-display text-xs text-foreground/90 mt-2 mb-1">{line.replace("### ", "")}</h4>;
-    if (line.startsWith("| ")) return <p key={i} className="font-mono text-xs text-muted-foreground">{line}</p>;
-    if (line.startsWith("---")) return <hr key={i} className="border-border/30 my-3" />;
-    if (line.startsWith("💡")) return <p key={i} className="text-xs text-primary/70 italic mt-2">{line}</p>;
-    if (line.startsWith("- **")) {
-      const parts = line.replace("- ", "").split("**");
-      return <p key={i} className="ml-2">• <strong className="text-primary">{parts[1]}</strong>{parts[2]}</p>;
-    }
-    if (line.match(/^\d\./)) {
-      const parts = line.split("**");
-      if (parts.length > 1) return <p key={i} className="ml-2">{parts[0]}<strong className="text-primary">{parts[1]}</strong>{parts[2]}</p>;
-    }
-    return line ? <p key={i}>{line.replace(/\*\*/g, "")}</p> : <br key={i} />;
+    setMessages(prev => prev.map(m => m.id === msgId ? { ...m, feedback: m.feedback === type ? null : type } : m));
   };
 
   return (
     <div className="h-screen flex flex-col pt-14 pb-16">
-      {/* Chat header */}
       <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/30">
         <h2 className="text-sm font-medium text-foreground">New Chat</h2>
         <div className="flex items-center gap-1">
-          <button className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors">
-            <Plus size={16} />
-          </button>
-          <button className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors">
-            <Clock size={16} />
-          </button>
-          <button className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors">
-            <Settings size={16} />
-          </button>
+          <button className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors"><Plus size={16} /></button>
+          <button className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors"><Clock size={16} /></button>
         </div>
       </div>
 
-      {/* Gatekeeping popup */}
       {showGatekeep && (
-        <GatekeepingPopup
-          onClose={() => setShowGatekeep(false)}
-          onSignIn={() => { onSignIn(); setShowGatekeep(false); }}
-        />
+        <GatekeepingPopup onClose={() => setShowGatekeep(false)} onSignIn={() => { setShowGatekeep(false); navigate("/login"); }} />
       )}
 
-      {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
         {messages.map((msg) => (
-          <div
-            key={msg.id}
-            className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"} animate-message-in`}
-          >
+          <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"} animate-message-in`}>
             <div className="max-w-[85%]">
               {msg.role === "assistant" && (
                 <div className="flex items-center gap-2 mb-1.5">
@@ -169,9 +116,7 @@ const ChatPage = ({ userName, isSignedIn, onSignIn }: ChatPageProps) => {
                     <Sparkles size={10} className="text-primary" />
                   </div>
                   <span className="text-[10px] font-mono text-muted-foreground">ApexBot</span>
-                  {msg.isStreaming && (
-                    <span className="text-[9px] font-mono text-primary/60 animate-pulse">streaming…</span>
-                  )}
+                  {msg.isStreaming && <span className="text-[9px] font-mono text-primary/60 animate-pulse">streaming…</span>}
                 </div>
               )}
               <div className={`rounded-2xl px-4 py-3 text-sm leading-relaxed transition-all duration-300 ${
@@ -179,30 +124,24 @@ const ChatPage = ({ userName, isSignedIn, onSignIn }: ChatPageProps) => {
                   ? "bg-primary/15 border border-primary/30 rounded-br-md"
                   : "glass-panel rounded-bl-md"
               }`}>
-                {msg.content ? msg.content.split("\n").map((line, i) => renderLine(line, i)) : (
+                {msg.content ? (
+                  <div className="prose prose-sm prose-invert max-w-none prose-headings:font-display prose-headings:tracking-wide prose-code:text-primary prose-code:bg-background/50 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-pre:bg-background/70 prose-pre:border prose-pre:border-border/30 prose-a:text-primary prose-strong:text-foreground">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+                  </div>
+                ) : (
                   <span className="text-muted-foreground animate-pulse">…</span>
                 )}
-                {msg.isStreaming && (
-                  <span className="inline-block w-1.5 h-4 bg-primary/70 animate-pulse ml-0.5 rounded-sm" />
-                )}
+                {msg.isStreaming && <span className="inline-block w-1.5 h-4 bg-primary/70 animate-pulse ml-0.5 rounded-sm" />}
               </div>
 
               {msg.role === "assistant" && msg.id !== "welcome" && !msg.isStreaming && (
                 <div className="flex items-center gap-2 mt-1.5 ml-1 animate-fade-in">
-                  <button
-                    onClick={() => setFeedback(msg.id, "up")}
-                    className={`p-1 rounded transition-all ${
-                      msg.feedback === "up" ? "text-primary" : "text-muted-foreground hover:text-primary"
-                    }`}
-                  >
+                  <button onClick={() => setFeedback(msg.id, "up")}
+                    className={`p-1 rounded transition-all ${msg.feedback === "up" ? "text-primary" : "text-muted-foreground hover:text-primary"}`}>
                     <ThumbsUp size={12} />
                   </button>
-                  <button
-                    onClick={() => setFeedback(msg.id, "down")}
-                    className={`p-1 rounded transition-all ${
-                      msg.feedback === "down" ? "text-destructive" : "text-muted-foreground hover:text-destructive"
-                    }`}
-                  >
+                  <button onClick={() => setFeedback(msg.id, "down")}
+                    className={`p-1 rounded transition-all ${msg.feedback === "down" ? "text-destructive" : "text-muted-foreground hover:text-destructive"}`}>
                     <ThumbsDown size={12} />
                   </button>
                 </div>
@@ -227,51 +166,29 @@ const ChatPage = ({ userName, isSignedIn, onSignIn }: ChatPageProps) => {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Smart Actions */}
       <div className="px-4 py-1.5 flex gap-2 overflow-x-auto">
         {SMART_ACTIONS.map((action) => (
-          <button
-            key={action}
-            onClick={() => sendMessage(action + " the above")}
+          <button key={action} onClick={() => sendMessage(action + " the above")}
             disabled={messages.length < 2 || isTyping}
-            className="text-[11px] px-3 py-1.5 rounded-full border border-border/50 text-muted-foreground hover:text-primary hover:border-primary/40 transition-all whitespace-nowrap disabled:opacity-30"
-          >
+            className="text-[11px] px-3 py-1.5 rounded-full border border-border/50 text-muted-foreground hover:text-primary hover:border-primary/40 transition-all whitespace-nowrap disabled:opacity-30">
             {action}
           </button>
         ))}
       </div>
 
-      {/* Input */}
       <div className="px-4 pb-2">
         <div className="flex items-center gap-2 glass-panel rounded-full px-2 py-1.5">
-          <button className="p-2 text-muted-foreground hover:text-foreground transition-colors rounded-full hover:bg-muted/30">
-            <Paperclip size={16} />
-          </button>
-          <button className="p-2 text-muted-foreground hover:text-foreground transition-colors rounded-full hover:bg-muted/30">
-            <Image size={16} />
-          </button>
-          <input
-            type="text"
-            className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none px-1"
-            placeholder="Ask anything…"
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={e => e.key === "Enter" && sendMessage()}
-          />
-          <button className="p-2 text-muted-foreground hover:text-foreground transition-colors rounded-full hover:bg-muted/30">
-            <Mic size={16} />
-          </button>
-          <button
-            onClick={() => sendMessage()}
-            disabled={!input.trim() || isTyping}
-            className="p-2 rounded-full bg-primary/20 text-primary hover:bg-primary/30 transition-colors disabled:opacity-30"
-          >
+          <button className="p-2 text-muted-foreground hover:text-foreground transition-colors rounded-full hover:bg-muted/30"><Paperclip size={16} /></button>
+          <button className="p-2 text-muted-foreground hover:text-foreground transition-colors rounded-full hover:bg-muted/30"><Image size={16} /></button>
+          <input type="text" className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none px-1"
+            placeholder="Ask anything…" value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === "Enter" && sendMessage()} />
+          <button className="p-2 text-muted-foreground hover:text-foreground transition-colors rounded-full hover:bg-muted/30"><Mic size={16} /></button>
+          <button onClick={() => sendMessage()} disabled={!input.trim() || isTyping}
+            className="p-2 rounded-full bg-primary/20 text-primary hover:bg-primary/30 transition-colors disabled:opacity-30">
             <Send size={16} />
           </button>
         </div>
-        {isSignedIn && (
-          <p className="text-[9px] text-primary/50 mt-1 text-center font-mono">⚡ V10 Enhanced Mode Active</p>
-        )}
+        {isSignedIn && <p className="text-[9px] text-primary/50 mt-1 text-center font-mono">⚡ V10 Enhanced Mode Active</p>}
       </div>
     </div>
   );

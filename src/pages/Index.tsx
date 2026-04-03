@@ -1,7 +1,7 @@
-import { useState } from "react";
-import { Routes, Route, useNavigate, Navigate } from "react-router-dom";
+import { Routes, Route } from "react-router-dom";
 import TopBar from "@/components/TopBar";
 import BottomNav from "@/components/BottomNav";
+import WelcomePage from "./WelcomePage";
 import HomePage from "./HomePage";
 import ChatPage from "./ChatPage";
 import ToolsPage from "./ToolsPage";
@@ -11,49 +11,28 @@ import SettingsPage from "./SettingsPage";
 import JoinPage from "./JoinPage";
 import LoginPage from "./LoginPage";
 import OnboardingPage from "./OnboardingPage";
+import AboutPage from "./AboutPage";
 
 const Index = () => {
-  const [userName, setUserName] = useState("");
-  const [isSignedIn, setIsSignedIn] = useState(false);
-  const [hasOnboarded, setHasOnboarded] = useState(false);
-
-  const handleOnboardingComplete = (data: { name: string; dob: string; mission: string }) => {
-    setUserName(data.name);
-    setHasOnboarded(true);
-  };
-
-  const handleSignIn = (name?: string) => {
-    setIsSignedIn(true);
-    if (name) setUserName(name);
-    setHasOnboarded(true);
-  };
-
-  const handleSignOut = () => {
-    setIsSignedIn(false);
-    setUserName("");
-    setHasOnboarded(false);
-  };
-
-  // If not onboarded, show onboarding
-  if (!hasOnboarded) {
-    return <OnboardingPage onComplete={handleOnboardingComplete} />;
-  }
-
   return (
-    <>
-      <TopBar isSignedIn={isSignedIn} userName={userName} onSignOut={handleSignOut} />
-      <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/chat" element={<ChatPage userName={userName} isSignedIn={isSignedIn} onSignIn={() => handleSignIn()} />} />
-        <Route path="/tools" element={<ToolsPage />} />
-        <Route path="/history" element={<HistoryPage />} />
-        <Route path="/profile" element={<ProfilePage userName={userName} isSignedIn={isSignedIn} onSignOut={handleSignOut} />} />
-        <Route path="/settings" element={<SettingsPage />} />
-        <Route path="/join" element={<JoinPage onSignIn={(name) => handleSignIn(name)} />} />
-        <Route path="/login" element={<LoginPage onSignIn={(name) => handleSignIn(name)} />} />
-      </Routes>
-      <BottomNav />
-    </>
+    <Routes>
+      {/* Welcome - always first */}
+      <Route path="/" element={<WelcomePage />} />
+
+      {/* Onboarding & Auth - no chrome */}
+      <Route path="/onboarding" element={<OnboardingPage />} />
+      <Route path="/join" element={<JoinPage />} />
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/about" element={<AboutPage />} />
+
+      {/* Main app with TopBar + BottomNav */}
+      <Route path="/home" element={<><TopBar /><HomePage /><BottomNav /></>} />
+      <Route path="/chat" element={<><TopBar /><ChatPage /><BottomNav /></>} />
+      <Route path="/tools" element={<><TopBar /><ToolsPage /><BottomNav /></>} />
+      <Route path="/history" element={<><TopBar /><HistoryPage /><BottomNav /></>} />
+      <Route path="/profile" element={<><TopBar /><ProfilePage /><BottomNav /></>} />
+      <Route path="/settings" element={<><TopBar /><SettingsPage /><BottomNav /></>} />
+    </Routes>
   );
 };
 
