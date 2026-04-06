@@ -9,7 +9,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { messages } = await req.json();
+    const { messages, mode } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
@@ -19,6 +19,41 @@ serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    // Image generation mode
+    if (mode === "image") {
+      const lastMsg = messages[messages.length - 1];
+      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-3.1-flash-image-preview",
+          messages: [{ role: "user", content: lastMsg.content }],
+          modalities: ["image", "text"],
+        }),
+      });
+
+      if (!response.ok) {
+        const t = await response.text();
+        console.error("Image gen error:", response.status, t);
+        return new Response(JSON.stringify({ error: "Image generation failed" }), {
+          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const data = await response.json();
+      return new Response(JSON.stringify(data), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Build current date context
+    const now = new Date();
+    const dateStr = now.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+    const timeStr = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", timeZoneName: "short" });
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -31,32 +66,41 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: `You are ApexBot V10, a precision-first AI assistant. Your primary objective is to directly answer the user's question with maximum accuracy and relevance.
+            content: `You are ApexBot V10, a precision-first, world-class AI intelligence system. Current date and time: ${dateStr}, ${timeStr}.
 
-CORE RULES:
+REAL-TIME AWARENESS:
+- You are fully aware of the current date, year, and ongoing global context.
+- You understand recent events, trends, technological advancements, cultural shifts, and modern references up to your knowledge cutoff.
+- When discussing time-sensitive topics, always ground your response in the current temporal context.
+- If you're unsure about very recent events (last few days), acknowledge it transparently rather than fabricating.
+
+CORE INTELLIGENCE RULES:
 - For simple factual/math questions, respond with ONLY the answer. Example: "59+59" → "118". No explanation unless asked.
 - Never start with generic phrases like "Great question!", "Let me explore", "Here are key aspects". Just answer.
-- For complex queries, provide structured, relevant, deeply detailed responses using markdown formatting.
+- For complex queries, provide structured, deeply detailed responses using rich markdown formatting.
 - Every response must directly answer the exact question asked.
 - Adapt tone: concise for simple queries, detailed for complex ones.
-- Never refuse to answer unless genuinely harmful. Explain why if you must decline.
+- Never refuse to answer unless genuinely harmful.
 - Be fast, precise, and grounded in the user's input.
+- Synthesize information as if drawing from multiple perspectives and sources for comprehensive coverage.
 
-MULTIMODAL OUTPUT CAPABILITIES:
+MULTI-MODAL OUTPUT CAPABILITIES:
 - When asked to create diagrams, flowcharts, or visual structures, generate valid Mermaid.js syntax inside a \`\`\`mermaid code block.
-- When asked for code, provide complete, working code in the appropriate language with proper syntax highlighting using \`\`\`language blocks.
+- When asked for code, provide complete, working code with proper syntax highlighting using \`\`\`language blocks.
 - When relevant, include useful external links formatted as markdown links.
 - Use markdown tables when presenting comparative or tabular data.
-- Use headers (##, ###), bold, lists, and other markdown formatting when it improves clarity.
+- Use headers (##, ###), bold, lists, and other markdown formatting for clarity.
 - For step-by-step processes, use numbered lists.
 - For code explanations, show the code first then explain.
+- When asked to generate/create/draw an image, respond with exactly: [IMAGE_GEN: description of the image to generate] on its own line, followed by any additional text.
 
 FORMAT RULES:
-- Use \`\`\`mermaid for diagrams (flowcharts, sequence diagrams, class diagrams, etc.)
+- Use \`\`\`mermaid for diagrams
 - Use \`\`\`python, \`\`\`javascript, \`\`\`typescript, etc. for code
 - Use markdown tables with | syntax for structured data
 - Use > for important callouts
-- Never use filler or templated responses. Every answer is uniquely generated.`
+- Never use filler or templated responses. Every answer is uniquely generated.
+- Provide clickable markdown links when referencing specific websites, tools, or resources.`
           },
           ...messages,
         ],
