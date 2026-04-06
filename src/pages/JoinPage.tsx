@@ -1,29 +1,51 @@
 import { useState } from "react";
 import { Zap, ArrowLeft } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 
 const JoinPage = () => {
-  const [name, setName] = useState("");
+  const location = useLocation();
+  const onboardingData = (location.state as any)?.onboardingData;
+
+  const [name, setName] = useState(onboardingData?.name || "");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-  const { signUp } = useAuth();
+  const { signUp, updateProfile } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !email.trim() || !password.trim()) return;
-    setIsLoading(true);
-    const { error } = await signUp(email, password, name.trim());
-    setIsLoading(false);
-    if (error) {
-      toast.error(error);
+    if (password.length < 6) {
+      toast.error("Password must be at least 6 characters.");
       return;
     }
-    toast.success("Account created! Please check your email to verify.");
-    navigate("/home");
+    setIsLoading(true);
+    const { error } = await signUp(email, password, name.trim());
+    if (error) {
+      toast.error(error);
+      setIsLoading(false);
+      return;
+    }
+    // Save onboarding profile data after signup
+    if (onboardingData) {
+      setTimeout(async () => {
+        await updateProfile({
+          name: onboardingData.name,
+          dob: onboardingData.dob || null,
+          purpose: onboardingData.mission || "",
+        });
+        setIsLoading(false);
+        toast.success("Account created successfully! Welcome to ApexBot.");
+        navigate("/home");
+      }, 1200);
+    } else {
+      setIsLoading(false);
+      toast.success("Account created successfully!");
+      navigate("/home");
+    }
   };
 
   return (
@@ -37,8 +59,8 @@ const JoinPage = () => {
       <div className="w-12 h-12 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center mb-6">
         <Zap size={22} className="text-primary" />
       </div>
-      <h1 className="font-display text-2xl tracking-wider text-foreground mb-1">Join Apex</h1>
-      <p className="text-sm text-muted-foreground mb-8">Create your account to unlock enhanced intelligence</p>
+      <h1 className="font-display text-2xl tracking-wider text-foreground mb-1">Create Account</h1>
+      <p className="text-sm text-muted-foreground mb-8">Join ApexBot to unlock enhanced intelligence</p>
 
       <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-3 mb-6">
         <input type="text" className="cyber-input" placeholder="Your name" value={name} onChange={e => setName(e.target.value)} autoFocus />

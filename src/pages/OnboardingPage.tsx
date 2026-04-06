@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
+import { Zap, Shield, Brain, Save, Star, ArrowLeft } from "lucide-react";
 
 const PURPOSE_OPTIONS = [
   "Research & Learning",
@@ -15,15 +16,10 @@ const PURPOSE_OPTIONS = [
 const OnboardingPage = () => {
   const [step, setStep] = useState(0);
   const [data, setData] = useState({ name: "", dob: "", mission: "" });
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [isTransitioning, setIsTransitioning] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [mode, setMode] = useState<"signup" | "login">("signup");
   const navigate = useNavigate();
-  const { signUp, signIn, updateProfile, user } = useAuth();
 
-  // Steps: 0=Name, 1=DOB, 2=Purpose, 3=Auth (email/password)
+  // Steps: 0=Name, 1=DOB, 2=Purpose, 3=Choice (Create Account or Guest)
   const totalSteps = 4;
 
   const handleNext = () => {
@@ -38,39 +34,14 @@ const OnboardingPage = () => {
     }, 350);
   };
 
-  const handleAuth = async () => {
-    if (!email.trim() || !password.trim()) return;
-    setIsSubmitting(true);
-
-    if (mode === "signup") {
-      const { error } = await signUp(email, password, data.name);
-      if (error) {
-        toast.error(error);
-        setIsSubmitting(false);
-        return;
-      }
-      // After signup, update profile with onboarding data
-      // Small delay to let the trigger create the profile
-      setTimeout(async () => {
-        await updateProfile({ name: data.name, dob: data.dob || null, purpose: data.mission });
-        setIsSubmitting(false);
-        toast.success("Account created! Please check your email to verify.");
-        navigate("/home");
-      }, 1000);
-    } else {
-      const { error } = await signIn(email, password);
-      if (error) {
-        toast.error(error);
-        setIsSubmitting(false);
-        return;
-      }
-      setIsSubmitting(false);
-      navigate("/home");
-    }
+  const handleContinueAsGuest = () => {
+    // Save onboarding data to localStorage for guest usage
+    localStorage.setItem("guest_profile", JSON.stringify(data));
+    navigate("/home");
   };
 
   const progress = ((step + 1) / totalSteps) * 100;
-  const stepLabels = ["Your Name", "Date of Birth", "Your Purpose", "Create Account"];
+  const stepLabels = ["Your Name", "Date of Birth", "Your Purpose", "Get Started"];
 
   return (
     <div className="fixed inset-0 nebula-gradient flex items-center justify-center px-6">
@@ -127,35 +98,52 @@ const OnboardingPage = () => {
               </div>
             </>
           )}
+
           {step === 3 && (
             <>
-              <h2 className="font-display text-2xl text-foreground mb-2">
-                {mode === "signup" ? "Create Your Account" : "Welcome Back"}
-              </h2>
-              <p className="text-muted-foreground text-sm mb-6">
-                {mode === "signup" ? "Sign up to save your profile and unlock enhanced AI." : "Log in to continue where you left off."}
-              </p>
+              <h2 className="font-display text-2xl text-foreground mb-3 text-center">You're all set, {data.name}!</h2>
+              <p className="text-muted-foreground text-sm mb-8 text-center">How would you like to continue?</p>
               <div className="space-y-3">
-                <input type="email" className="cyber-input" placeholder="Email address" value={email}
-                  onChange={e => setEmail(e.target.value)} autoFocus />
-                <input type="password" className="cyber-input" placeholder="Password (min 6 characters)" value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  onKeyDown={e => e.key === "Enter" && handleAuth()} />
+                {/* Create Account Option */}
+                <button
+                  onClick={() => navigate("/join", { state: { onboardingData: data } })}
+                  className="w-full group relative overflow-hidden rounded-xl border-2 border-primary/40 p-5 text-left transition-all duration-300 hover:border-primary hover:shadow-[0_0_25px_hsl(var(--cyan-glow)/0.2)]"
+                  style={{ background: "linear-gradient(135deg, hsl(var(--cyan-glow) / 0.08), hsl(var(--purple-glow) / 0.08))" }}
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-accent/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                  <div className="relative flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary/20 to-accent/20 border border-primary/30 flex items-center justify-center shrink-0">
+                      <Shield size={22} className="text-primary" />
+                    </div>
+                    <div>
+                      <span className="font-display text-base text-foreground tracking-wide">Create an Account</span>
+                      <p className="text-xs text-muted-foreground mt-0.5">Unlock the full ApexBot experience</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); navigate("/why-account"); }}
+                    className="relative mt-3 text-[11px] text-primary hover:text-primary/80 transition-colors font-medium"
+                  >
+                    Why create an account?
+                  </button>
+                </button>
+
+                {/* Continue as Guest */}
+                <button
+                  onClick={handleContinueAsGuest}
+                  className="w-full group relative overflow-hidden rounded-xl border border-border/50 p-5 text-left transition-all duration-300 hover:border-muted-foreground/40 hover:bg-muted/20"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-xl bg-muted/30 border border-border/50 flex items-center justify-center shrink-0">
+                      <Zap size={22} className="text-muted-foreground group-hover:text-foreground transition-colors" />
+                    </div>
+                    <div>
+                      <span className="font-display text-base text-foreground tracking-wide">Continue as Guest</span>
+                      <p className="text-xs text-muted-foreground mt-0.5">Jump right in — no sign-up needed</p>
+                    </div>
+                  </div>
+                </button>
               </div>
-              <button onClick={handleAuth} disabled={!email.trim() || !password.trim() || isSubmitting}
-                className="cyber-button w-full mt-5 py-3 text-sm disabled:opacity-30">
-                {isSubmitting ? "Please wait…" : mode === "signup" ? "CREATE ACCOUNT" : "LOG IN"}
-              </button>
-              <p className="text-xs text-muted-foreground text-center mt-4">
-                {mode === "signup" ? (
-                  <>Already have an account? <button onClick={() => setMode("login")} className="text-primary hover:text-primary/80">Log in</button></>
-                ) : (
-                  <>New here? <button onClick={() => setMode("signup")} className="text-primary hover:text-primary/80">Create account</button></>
-                )}
-              </p>
-              <button onClick={() => navigate("/home")} className="text-xs text-muted-foreground/60 hover:text-muted-foreground w-full text-center mt-3 transition-colors">
-                Continue as guest
-              </button>
             </>
           )}
 
@@ -171,6 +159,15 @@ const OnboardingPage = () => {
                 disabled={(step === 0 && !data.name.trim()) || (step === 1 && !data.dob) || (step === 2 && !data.mission)}
                 className="cyber-button disabled:opacity-30 disabled:cursor-not-allowed">
                 Continue
+              </button>
+            </div>
+          )}
+
+          {step === 3 && (
+            <div className="mt-6">
+              <button onClick={() => { setIsTransitioning(true); setTimeout(() => { setStep(2); setIsTransitioning(false); }, 350); }}
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
+                <ArrowLeft size={14} /> Back
               </button>
             </div>
           )}
