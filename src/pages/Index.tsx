@@ -12,20 +12,18 @@ import JoinPage from "./JoinPage";
 import LoginPage from "./LoginPage";
 import OnboardingPage from "./OnboardingPage";
 import AboutPage from "./AboutPage";
+import WhyAccountPage from "./WhyAccountPage";
 
 const Index = () => {
   return (
     <Routes>
-      {/* Welcome - always first */}
       <Route path="/" element={<WelcomePage />} />
-
-      {/* Onboarding & Auth - no chrome */}
       <Route path="/onboarding" element={<OnboardingPage />} />
       <Route path="/join" element={<JoinPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/about" element={<AboutPage />} />
+      <Route path="/why-account" element={<WhyAccountPage />} />
 
-      {/* Main app with TopBar + BottomNav */}
       <Route path="/home" element={<><TopBar /><HomePage /><BottomNav /></>} />
       <Route path="/chat" element={<><TopBar /><ChatPage /><BottomNav /></>} />
       <Route path="/tools" element={<><TopBar /><ToolsPage /><BottomNav /></>} />

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Send, Sparkles, ThumbsUp, ThumbsDown, Plus, Clock, Settings, Mic, Paperclip, Image } from "lucide-react";
+import { Send, Sparkles, ThumbsUp, ThumbsDown, Plus, Clock, Mic, Paperclip, Image } from "lucide-react";
 import GatekeepingPopup from "@/components/GatekeepingPopup";
 import { streamChat } from "@/lib/streamChat";
 import { useAuth } from "@/hooks/useAuth";
@@ -23,7 +23,7 @@ const ChatPage = () => {
   const { user, profile } = useAuth();
   const navigate = useNavigate();
   const isSignedIn = !!user;
-  const userName = profile?.name || "there";
+  const userName = profile?.name || localStorage.getItem("guest_profile") ? JSON.parse(localStorage.getItem("guest_profile") || "{}")?.name || "there" : "there";
 
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -76,6 +76,7 @@ const ChatPage = () => {
       onDone: () => {
         setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, isStreaming: false } : m));
         setIsTyping(false);
+        // Only show gatekeeping popup for guests (not signed in), every 4th question
         if (!isSignedIn && newCount > 0 && newCount % 4 === 0) {
           setTimeout(() => setShowGatekeep(true), 800);
         }
