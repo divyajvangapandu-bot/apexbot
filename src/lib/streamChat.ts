@@ -70,7 +70,6 @@ export async function streamChat({
       }
     }
 
-    // Final flush
     if (textBuffer.trim()) {
       for (let raw of textBuffer.split("\n")) {
         if (!raw) continue;
@@ -90,5 +89,33 @@ export async function streamChat({
     onDone();
   } catch (e) {
     onError(e instanceof Error ? e.message : "Connection failed");
+  }
+}
+
+export async function generateImage(prompt: string): Promise<{ imageUrl?: string; text?: string; error?: string }> {
+  try {
+    const resp = await fetch(CHAT_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+      },
+      body: JSON.stringify({
+        messages: [{ role: "user", content: prompt }],
+        mode: "image",
+      }),
+    });
+
+    if (!resp.ok) {
+      const errorData = await resp.json().catch(() => ({ error: "Image generation failed" }));
+      return { error: errorData.error || "Image generation failed" };
+    }
+
+    const data = await resp.json();
+    const imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+    const text = data.choices?.[0]?.message?.content || "";
+    return { imageUrl, text };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Connection failed" };
   }
 }

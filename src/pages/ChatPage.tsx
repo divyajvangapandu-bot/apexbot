@@ -1,12 +1,14 @@
-import { useState, useRef, useEffect } from "react";
-import { Send, Sparkles, ThumbsUp, ThumbsDown, Plus, Clock, Mic, Paperclip, Image } from "lucide-react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { Send, Sparkles, ThumbsUp, ThumbsDown, Plus, Clock, Paperclip, Image as ImageIcon, X } from "lucide-react";
 import GatekeepingPopup from "@/components/GatekeepingPopup";
-import { streamChat } from "@/lib/streamChat";
+import { streamChat, generateImage } from "@/lib/streamChat";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import CodeBlock from "@/components/CodeBlock";
+import MermaidDiagram from "@/components/MermaidDiagram";
 
 interface Message {
   id: string;
@@ -15,6 +17,8 @@ interface Message {
   timestamp: Date;
   feedback?: "up" | "down" | null;
   isStreaming?: boolean;
+  imageUrl?: string;
+  attachments?: { type: "image"; dataUrl: string; name: string }[];
 }
 
 const SMART_ACTIONS = ["Summarise", "Explain", "Rewrite", "Simplify"];
@@ -23,13 +27,13 @@ const ChatPage = () => {
   const { user, profile } = useAuth();
   const navigate = useNavigate();
   const isSignedIn = !!user;
-  const userName = profile?.name || localStorage.getItem("guest_profile") ? JSON.parse(localStorage.getItem("guest_profile") || "{}")?.name || "there" : "there";
+  const userName = profile?.name || (() => { try { return JSON.parse(localStorage.getItem("guest_profile") || "{}")?.name || "there"; } catch { return "there"; } })();
 
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "welcome",
       role: "assistant",
-      content: `Hey ${userName}! 👋 I'm ApexBot — your unlimited AI companion. Ask me anything.`,
+      content: `Hey ${userName}! 👋 I'm ApexBot V10 — your world-class AI companion. I can answer questions, generate code, create diagrams, generate images, and more. Ask me anything.`,
       timestamp: new Date(),
     },
   ]);
@@ -37,23 +41,84 @@ const ChatPage = () => {
   const [isTyping, setIsTyping] = useState(false);
   const [questionCount, setQuestionCount] = useState(0);
   const [showGatekeep, setShowGatekeep] = useState(false);
+  const [pendingAttachments, setPendingAttachments] = useState<{ type: "image"; dataUrl: string; name: string }[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+    Array.from(files).forEach(file => {
+      if (file.type.startsWith("image/")) {
+        const reader = new FileReader();
+        reader.onload = () => {
+          setPendingAttachments(prev => [...prev, { type: "image", dataUrl: reader.result as string, name: file.name }]);
+        };
+        reader.readAsDataURL(file);
+      } else {
+        toast.error("Only image files are supported currently.");
+      }
+    });
+    e.target.value = "";
+  }, []);
+
+  const removeAttachment = (index: number) => {
+    setPendingAttachments(prev => prev.filter((_, i) => i !== index));
+  };
+
   const sendMessage = async (text?: string) => {
     const content = (text || input).trim();
-    if (!content || isTyping) return;
+    if ((!content && pendingAttachments.length === 0) || isTyping) return;
 
-    const userMsg: Message = { id: Date.now().toString(), role: "user", content, timestamp: new Date() };
+    const userMsg: Message = {
+      id: Date.now().toString(),
+      role: "user",
+      content: content || "(image attached)",
+      timestamp: new Date(),
+      attachments: pendingAttachments.length > 0 ? [...pendingAttachments] : undefined,
+    };
     setMessages(prev => [...prev, userMsg]);
     setInput("");
+    setPendingAttachments([]);
     setIsTyping(true);
 
     const newCount = questionCount + 1;
     setQuestionCount(newCount);
+
+    // Check if this is an image generation request
+    const isImageRequest = /\b(generate|create|draw|make|design|paint|sketch)\b.*\b(image|picture|photo|illustration|artwork|visual|icon|logo)\b/i.test(content) ||
+      /\b(image|picture|photo)\b.*\b(of|showing|with)\b/i.test(content);
+
+    if (isImageRequest) {
+      const assistantId = (Date.now() + 1).toString();
+      setMessages(prev => [...prev, {
+        id: assistantId, role: "assistant", content: "🎨 Generating image...", timestamp: new Date(), isStreaming: true,
+      }]);
+
+      const result = await generateImage(content);
+      if (result.error) {
+        toast.error(result.error);
+        setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: "Sorry, image generation failed. Please try again.", isStreaming: false } : m));
+      } else {
+        setMessages(prev => prev.map(m => m.id === assistantId ? {
+          ...m,
+          content: result.text || "Here's your generated image:",
+          imageUrl: result.imageUrl,
+          isStreaming: false,
+        } : m));
+      }
+      setIsTyping(false);
+
+      if (!isSignedIn && newCount > 0 && newCount % 4 === 0) {
+        setTimeout(() => setShowGatekeep(true), 800);
+      }
+      return;
+    }
 
     const chatHistory = [...messages.filter(m => m.id !== "welcome"), userMsg].map(m => ({
       role: m.role as "user" | "assistant",
@@ -74,9 +139,25 @@ const ChatPage = () => {
         setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: assistantContent } : m));
       },
       onDone: () => {
-        setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, isStreaming: false } : m));
+        // Check if AI returned an image generation tag
+        const imageMatch = assistantContent.match(/\[IMAGE_GEN:\s*(.+?)\]/);
+        if (imageMatch) {
+          const imagePrompt = imageMatch[1];
+          const textContent = assistantContent.replace(/\[IMAGE_GEN:\s*.+?\]/, "").trim();
+          setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: textContent || "Generating image...", isStreaming: true } : m));
+
+          generateImage(imagePrompt).then(result => {
+            setMessages(prev => prev.map(m => m.id === assistantId ? {
+              ...m,
+              content: textContent || (result.text || "Here's your generated image:"),
+              imageUrl: result.imageUrl,
+              isStreaming: false,
+            } : m));
+          });
+        } else {
+          setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, isStreaming: false } : m));
+        }
         setIsTyping(false);
-        // Only show gatekeeping popup for guests (not signed in), every 4th question
         if (!isSignedIn && newCount > 0 && newCount % 4 === 0) {
           setTimeout(() => setShowGatekeep(true), 800);
         }
@@ -92,6 +173,40 @@ const ChatPage = () => {
   const setFeedback = (msgId: string, type: "up" | "down") => {
     setMessages(prev => prev.map(m => m.id === msgId ? { ...m, feedback: m.feedback === type ? null : type } : m));
   };
+
+  const renderMarkdown = (content: string) => (
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
+      components={{
+        code({ className, children, ...props }) {
+          const match = /language-(\w+)/.exec(className || "");
+          const codeStr = String(children).replace(/\n$/, "");
+
+          if (match) {
+            if (match[1] === "mermaid") {
+              return <MermaidDiagram code={codeStr} />;
+            }
+            return <CodeBlock language={match[1]}>{codeStr}</CodeBlock>;
+          }
+
+          return (
+            <code className="text-primary bg-background/50 px-1.5 py-0.5 rounded text-[13px] font-mono" {...props}>
+              {children}
+            </code>
+          );
+        },
+        a({ href, children }) {
+          return (
+            <a href={href} target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-2 hover:text-primary/80 transition-colors">
+              {children}
+            </a>
+          );
+        },
+      }}
+    >
+      {content}
+    </ReactMarkdown>
+  );
 
   return (
     <div className="h-screen flex flex-col pt-14 pb-16">
@@ -116,24 +231,41 @@ const ChatPage = () => {
                   <div className="w-5 h-5 rounded-full bg-primary/15 border border-primary/30 flex items-center justify-center">
                     <Sparkles size={10} className="text-primary" />
                   </div>
-                  <span className="text-[10px] font-mono text-muted-foreground">ApexBot</span>
+                  <span className="text-[10px] font-mono text-muted-foreground">ApexBot V10</span>
                   {msg.isStreaming && <span className="text-[9px] font-mono text-primary/60 animate-pulse">streaming…</span>}
                 </div>
               )}
+
+              {/* User attachments */}
+              {msg.attachments && msg.attachments.length > 0 && (
+                <div className="flex gap-2 mb-2 flex-wrap justify-end">
+                  {msg.attachments.map((att, i) => (
+                    <img key={i} src={att.dataUrl} alt={att.name} className="w-24 h-24 object-cover rounded-lg border border-border/30" />
+                  ))}
+                </div>
+              )}
+
               <div className={`rounded-2xl px-4 py-3 text-sm leading-relaxed transition-all duration-300 ${
                 msg.role === "user"
                   ? "bg-primary/15 border border-primary/30 rounded-br-md"
                   : "glass-panel rounded-bl-md"
               }`}>
                 {msg.content ? (
-                  <div className="prose prose-sm prose-invert max-w-none prose-headings:font-display prose-headings:tracking-wide prose-code:text-primary prose-code:bg-background/50 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-pre:bg-background/70 prose-pre:border prose-pre:border-border/30 prose-a:text-primary prose-strong:text-foreground">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+                  <div className="prose prose-sm prose-invert max-w-none prose-headings:font-display prose-headings:tracking-wide prose-pre:bg-transparent prose-pre:p-0 prose-pre:border-0 prose-a:text-primary prose-strong:text-foreground prose-code:before:content-none prose-code:after:content-none">
+                    {msg.role === "assistant" ? renderMarkdown(msg.content) : msg.content}
                   </div>
                 ) : (
                   <span className="text-muted-foreground animate-pulse">…</span>
                 )}
                 {msg.isStreaming && <span className="inline-block w-1.5 h-4 bg-primary/70 animate-pulse ml-0.5 rounded-sm" />}
               </div>
+
+              {/* Generated image */}
+              {msg.imageUrl && (
+                <div className="mt-3 rounded-xl overflow-hidden border border-border/30 animate-fade-in">
+                  <img src={msg.imageUrl} alt="AI Generated" className="w-full max-w-md rounded-xl" />
+                </div>
+              )}
 
               {msg.role === "assistant" && msg.id !== "welcome" && !msg.isStreaming && (
                 <div className="flex items-center gap-2 mt-1.5 ml-1 animate-fade-in">
@@ -177,19 +309,38 @@ const ChatPage = () => {
         ))}
       </div>
 
+      {/* Attachment previews */}
+      {pendingAttachments.length > 0 && (
+        <div className="px-4 py-2 flex gap-2 overflow-x-auto">
+          {pendingAttachments.map((att, i) => (
+            <div key={i} className="relative group">
+              <img src={att.dataUrl} alt={att.name} className="w-16 h-16 object-cover rounded-lg border border-border/30" />
+              <button onClick={() => removeAttachment(i)} className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-destructive flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                <X size={10} className="text-destructive-foreground" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
       <div className="px-4 pb-2">
         <div className="flex items-center gap-2 glass-panel rounded-full px-2 py-1.5">
-          <button className="p-2 text-muted-foreground hover:text-foreground transition-colors rounded-full hover:bg-muted/30"><Paperclip size={16} /></button>
-          <button className="p-2 text-muted-foreground hover:text-foreground transition-colors rounded-full hover:bg-muted/30"><Image size={16} /></button>
+          <input ref={fileInputRef} type="file" className="hidden" accept="*/*" onChange={handleFileSelect} />
+          <input ref={imageInputRef} type="file" className="hidden" accept="image/*" capture="environment" onChange={handleFileSelect} />
+          <button onClick={() => fileInputRef.current?.click()} className="p-2 text-muted-foreground hover:text-foreground transition-colors rounded-full hover:bg-muted/30">
+            <Paperclip size={16} />
+          </button>
+          <button onClick={() => imageInputRef.current?.click()} className="p-2 text-muted-foreground hover:text-foreground transition-colors rounded-full hover:bg-muted/30">
+            <ImageIcon size={16} />
+          </button>
           <input type="text" className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none px-1"
             placeholder="Ask anything…" value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === "Enter" && sendMessage()} />
-          <button className="p-2 text-muted-foreground hover:text-foreground transition-colors rounded-full hover:bg-muted/30"><Mic size={16} /></button>
-          <button onClick={() => sendMessage()} disabled={!input.trim() || isTyping}
+          <button onClick={() => sendMessage()} disabled={(!input.trim() && pendingAttachments.length === 0) || isTyping}
             className="p-2 rounded-full bg-primary/20 text-primary hover:bg-primary/30 transition-colors disabled:opacity-30">
             <Send size={16} />
           </button>
         </div>
-        {isSignedIn && <p className="text-[9px] text-primary/50 mt-1 text-center font-mono">⚡ V10 Enhanced Mode Active</p>}
+        {isSignedIn && <p className="text-[9px] text-primary/50 mt-1 text-center font-mono">⚡ V10 Enhanced Mode Active — Real-time Intelligence</p>}
       </div>
     </div>
   );
