@@ -1,4 +1,4 @@
-import { Search, PenTool, FileText, Languages, Lightbulb, MessageSquare, Clock, Zap } from "lucide-react";
+import { Search, PenTool, FileText, Languages, Lightbulb, MessageSquare, Zap } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -8,12 +8,6 @@ const quickActions = [
   { icon: FileText, label: "Summarise", color: "text-primary" },
   { icon: Languages, label: "Translate", color: "text-accent" },
   { icon: Lightbulb, label: "Solve", color: "text-primary" },
-];
-
-const recentChats = [
-  { id: "1", title: "Quantum computing fundamentals", time: "2h ago" },
-  { id: "2", title: "Neural network architecture", time: "5h ago" },
-  { id: "3", title: "Advanced cryptography methods", time: "1d ago" },
 ];
 
 const HomePage = () => {
@@ -58,17 +52,14 @@ const HomePage = () => {
           <h2 className="text-xs font-display tracking-widest text-muted-foreground">CONTINUE CONVERSATIONS</h2>
           <button onClick={() => navigate("/history")} className="text-[10px] text-primary hover:text-primary/80 transition-colors">View all</button>
         </div>
-        <div className="space-y-1.5">
-          {recentChats.map((chat) => (
-            <button key={chat.id} onClick={() => navigate("/chat")}
-              className="w-full flex items-center gap-3 p-3 rounded-lg glass-panel hover:neon-border-cyan transition-all duration-200 text-left">
-              <MessageSquare size={14} className="text-primary shrink-0" />
-              <div className="flex-1 min-w-0"><p className="text-sm text-foreground truncate">{chat.title}</p></div>
-              <div className="flex items-center gap-1 text-muted-foreground">
-                <Clock size={10} /><span className="text-[10px] font-mono">{chat.time}</span>
-              </div>
-            </button>
-          ))}
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <MessageSquare size={32} className="text-muted-foreground/40 mb-3" />
+          <p className="text-sm text-muted-foreground mb-1">No conversations yet</p>
+          <p className="text-xs text-muted-foreground/70 mb-4">Start a conversation right now!</p>
+          <button onClick={() => navigate("/chat")}
+            className="text-xs px-6 py-2.5 rounded-full bg-primary/15 border border-primary/30 text-primary hover:bg-primary/25 transition-all duration-200">
+            Start Conversation
+          </button>
         </div>
       </div>
     </div>

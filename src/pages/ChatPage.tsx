@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, Sparkles, ThumbsUp, ThumbsDown, Plus, Clock, Paperclip, Image as ImageIcon, X } from "lucide-react";
+import { Send, Sparkles, ThumbsUp, ThumbsDown, Plus, Clock, Paperclip, Image as ImageIcon, X, Wrench, Mic, MicOff } from "lucide-react";
 import GatekeepingPopup from "@/components/GatekeepingPopup";
+import ToolsPopup from "@/components/ToolsPopup";
 import { streamChat, generateImage } from "@/lib/streamChat";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
@@ -21,8 +22,6 @@ interface Message {
   attachments?: { type: "image"; dataUrl: string; name: string }[];
 }
 
-const SMART_ACTIONS = ["Summarise", "Explain", "Rewrite", "Simplify"];
-
 const ChatPage = () => {
   const { user, profile } = useAuth();
   const navigate = useNavigate();
@@ -41,10 +40,13 @@ const ChatPage = () => {
   const [isTyping, setIsTyping] = useState(false);
   const [questionCount, setQuestionCount] = useState(0);
   const [showGatekeep, setShowGatekeep] = useState(false);
+  const [showTools, setShowTools] = useState(false);
   const [pendingAttachments, setPendingAttachments] = useState<{ type: "image"; dataUrl: string; name: string }[]>([]);
+  const [isRecording, setIsRecording] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const recognitionRef = useRef<any>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -71,6 +73,49 @@ const ChatPage = () => {
     setPendingAttachments(prev => prev.filter((_, i) => i !== index));
   };
 
+  const toggleRecording = () => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      toast.error("Speech recognition is not supported in this browser.");
+      return;
+    }
+
+    if (isRecording && recognitionRef.current) {
+      recognitionRef.current.stop();
+      setIsRecording(false);
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.lang = "en-US";
+
+    recognition.onresult = (event: any) => {
+      let transcript = "";
+      for (let i = 0; i < event.results.length; i++) {
+        transcript += event.results[i][0].transcript;
+      }
+      setInput(transcript);
+    };
+
+    recognition.onend = () => {
+      setIsRecording(false);
+    };
+
+    recognition.onerror = (event: any) => {
+      console.error("Speech recognition error:", event.error);
+      setIsRecording(false);
+      if (event.error === "not-allowed") {
+        toast.error("Microphone access denied. Please allow microphone permissions.");
+      }
+    };
+
+    recognitionRef.current = recognition;
+    recognition.start();
+    setIsRecording(true);
+  };
+
   const sendMessage = async (text?: string) => {
     const content = (text || input).trim();
     if ((!content && pendingAttachments.length === 0) || isTyping) return;
@@ -90,7 +135,6 @@ const ChatPage = () => {
     const newCount = questionCount + 1;
     setQuestionCount(newCount);
 
-    // Check if this is an image generation request
     const isImageRequest = /\b(generate|create|draw|make|design|paint|sketch)\b.*\b(image|picture|photo|illustration|artwork|visual|icon|logo)\b/i.test(content) ||
       /\b(image|picture|photo)\b.*\b(of|showing|with)\b/i.test(content);
 
@@ -106,14 +150,10 @@ const ChatPage = () => {
         setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: "Sorry, image generation failed. Please try again.", isStreaming: false } : m));
       } else {
         setMessages(prev => prev.map(m => m.id === assistantId ? {
-          ...m,
-          content: result.text || "Here's your generated image:",
-          imageUrl: result.imageUrl,
-          isStreaming: false,
+          ...m, content: result.text || "Here's your generated image:", imageUrl: result.imageUrl, isStreaming: false,
         } : m));
       }
       setIsTyping(false);
-
       if (!isSignedIn && newCount > 0 && newCount % 4 === 0) {
         setTimeout(() => setShowGatekeep(true), 800);
       }
@@ -139,7 +179,6 @@ const ChatPage = () => {
         setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: assistantContent } : m));
       },
       onDone: () => {
-        // Check if AI returned an image generation tag
         const imageMatch = assistantContent.match(/\[IMAGE_GEN:\s*(.+?)\]/);
         if (imageMatch) {
           const imagePrompt = imageMatch[1];
@@ -148,10 +187,7 @@ const ChatPage = () => {
 
           generateImage(imagePrompt).then(result => {
             setMessages(prev => prev.map(m => m.id === assistantId ? {
-              ...m,
-              content: textContent || (result.text || "Here's your generated image:"),
-              imageUrl: result.imageUrl,
-              isStreaming: false,
+              ...m, content: textContent || (result.text || "Here's your generated image:"), imageUrl: result.imageUrl, isStreaming: false,
             } : m));
           });
         } else {
@@ -181,14 +217,10 @@ const ChatPage = () => {
         code({ className, children, ...props }) {
           const match = /language-(\w+)/.exec(className || "");
           const codeStr = String(children).replace(/\n$/, "");
-
           if (match) {
-            if (match[1] === "mermaid") {
-              return <MermaidDiagram code={codeStr} />;
-            }
+            if (match[1] === "mermaid") return <MermaidDiagram code={codeStr} />;
             return <CodeBlock language={match[1]}>{codeStr}</CodeBlock>;
           }
-
           return (
             <code className="text-primary bg-background/50 px-1.5 py-0.5 rounded text-[13px] font-mono" {...props}>
               {children}
@@ -222,6 +254,10 @@ const ChatPage = () => {
         <GatekeepingPopup onClose={() => setShowGatekeep(false)} onSignIn={() => { setShowGatekeep(false); navigate("/login"); }} />
       )}
 
+      <ToolsPopup open={showTools} onClose={() => setShowTools(false)} onSelectTool={(label) => {
+        setInput(prev => prev ? `${label}: ${prev}` : `${label}: `);
+      }} />
+
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
         {messages.map((msg) => (
           <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"} animate-message-in`}>
@@ -236,7 +272,6 @@ const ChatPage = () => {
                 </div>
               )}
 
-              {/* User attachments */}
               {msg.attachments && msg.attachments.length > 0 && (
                 <div className="flex gap-2 mb-2 flex-wrap justify-end">
                   {msg.attachments.map((att, i) => (
@@ -260,7 +295,6 @@ const ChatPage = () => {
                 {msg.isStreaming && <span className="inline-block w-1.5 h-4 bg-primary/70 animate-pulse ml-0.5 rounded-sm" />}
               </div>
 
-              {/* Generated image */}
               {msg.imageUrl && (
                 <div className="mt-3 rounded-xl overflow-hidden border border-border/30 animate-fade-in">
                   <img src={msg.imageUrl} alt="AI Generated" className="w-full max-w-md rounded-xl" />
@@ -299,14 +333,15 @@ const ChatPage = () => {
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="px-4 py-1.5 flex gap-2 overflow-x-auto">
-        {SMART_ACTIONS.map((action) => (
-          <button key={action} onClick={() => sendMessage(action + " the above")}
-            disabled={messages.length < 2 || isTyping}
-            className="text-[11px] px-3 py-1.5 rounded-full border border-border/50 text-muted-foreground hover:text-primary hover:border-primary/40 transition-all whitespace-nowrap disabled:opacity-30">
-            {action}
-          </button>
-        ))}
+      {/* Tools button */}
+      <div className="px-4 py-1.5 flex items-center justify-center">
+        <button
+          onClick={() => setShowTools(true)}
+          className="flex items-center gap-2 px-4 py-2 rounded-full glass-panel hover:neon-border-cyan transition-all duration-200 active:scale-95 group"
+        >
+          <Wrench size={14} className="text-primary group-hover:rotate-12 transition-transform" />
+          <span className="text-[11px] font-display tracking-wider text-muted-foreground group-hover:text-foreground transition-colors">ApexBot Intelligence Tools</span>
+        </button>
       </div>
 
       {/* Attachment previews */}
@@ -332,6 +367,10 @@ const ChatPage = () => {
           </button>
           <button onClick={() => imageInputRef.current?.click()} className="p-2 text-muted-foreground hover:text-foreground transition-colors rounded-full hover:bg-muted/30">
             <ImageIcon size={16} />
+          </button>
+          <button onClick={toggleRecording}
+            className={`p-2 rounded-full transition-all ${isRecording ? "text-destructive bg-destructive/15 animate-pulse" : "text-muted-foreground hover:text-foreground hover:bg-muted/30"}`}>
+            {isRecording ? <MicOff size={16} /> : <Mic size={16} />}
           </button>
           <input type="text" className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none px-1"
             placeholder="Ask anything…" value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === "Enter" && sendMessage()} />
