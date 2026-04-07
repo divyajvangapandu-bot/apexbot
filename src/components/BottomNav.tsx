@@ -1,10 +1,9 @@
-import { Home, MessageSquare, Wrench, Clock, User } from "lucide-react";
+import { Home, MessageSquare, Clock, User } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 const tabs = [
   { path: "/home", icon: Home, label: "Home" },
   { path: "/chat", icon: MessageSquare, label: "Chat" },
-  { path: "/tools", icon: Wrench, label: "Tools" },
   { path: "/history", icon: Clock, label: "History" },
   { path: "/profile", icon: User, label: "Profile" },
 ];

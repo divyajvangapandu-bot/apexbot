@@ -4,7 +4,7 @@ import BottomNav from "@/components/BottomNav";
 import WelcomePage from "./WelcomePage";
 import HomePage from "./HomePage";
 import ChatPage from "./ChatPage";
-import ToolsPage from "./ToolsPage";
+
 import HistoryPage from "./HistoryPage";
 import ProfilePage from "./ProfilePage";
 import SettingsPage from "./SettingsPage";
@@ -26,7 +26,7 @@ const Index = () => {
 
       <Route path="/home" element={<><TopBar /><HomePage /><BottomNav /></>} />
       <Route path="/chat" element={<><TopBar /><ChatPage /><BottomNav /></>} />
-      <Route path="/tools" element={<><TopBar /><ToolsPage /><BottomNav /></>} />
+      
       <Route path="/history" element={<><TopBar /><HistoryPage /><BottomNav /></>} />
       <Route path="/profile" element={<><TopBar /><ProfilePage /><BottomNav /></>} />
       <Route path="/settings" element={<><TopBar /><SettingsPage /><BottomNav /></>} />
