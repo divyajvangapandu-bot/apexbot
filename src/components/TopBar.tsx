@@ -59,11 +59,11 @@ const TopBar = () => {
               </>
             ) : (
               <button
-                onClick={() => navigate("/login")}
+                onClick={() => navigate("/join")}
                 className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 transition-colors px-3 py-1.5 rounded-md hover:bg-primary/10 border border-primary/30"
               >
                 <LogIn size={14} />
-                <span>Sign In</span>
+                <span>Create Account</span>
               </button>
             )}
             <button
