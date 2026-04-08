@@ -58,6 +58,7 @@ const WelcomePage = () => {
         </button>
 
         <p className="text-[10px] text-muted-foreground/50 mt-6 font-mono tracking-wider">V10 SUPER-INTELLIGENCE SYSTEM</p>
+        <p className="text-[9px] text-muted-foreground/30 mt-3 font-mono tracking-widest">Powered by BrainBox</p>
       </div>
     </div>
   );
