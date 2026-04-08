@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, Sparkles, ThumbsUp, ThumbsDown, Plus, Clock, Paperclip, Image as ImageIcon, X, Wrench, Mic, MicOff } from "lucide-react";
+import { Send, Sparkles, ThumbsUp, ThumbsDown, Plus, Clock, Paperclip, Image as ImageIcon, X, Wrench, Mic, MicOff, Square } from "lucide-react";
 import GatekeepingPopup from "@/components/GatekeepingPopup";
 import ToolsPopup from "@/components/ToolsPopup";
 import { streamChat, generateImage } from "@/lib/streamChat";
@@ -20,6 +20,44 @@ interface Message {
   isStreaming?: boolean;
   imageUrl?: string;
   attachments?: { type: "image"; dataUrl: string; name: string }[];
+}
+
+const SUGGESTION_POOL = [
+  "What's trending in tech today?",
+  "Help me write a professional email",
+  "Explain quantum computing simply",
+  "Give me 5 creative project ideas",
+  "What are the best productivity tips?",
+  "Help me with my homework",
+  "Summarize the latest world news",
+  "Give me fun facts about space",
+  "How do I start learning to code?",
+  "Suggest healthy meal ideas for the week",
+  "What's a good book to read this month?",
+  "Help me plan a weekend trip",
+  "Explain how AI works in simple terms",
+  "Give me ideas for a school project",
+  "What are some interesting science experiments?",
+  "Help me prepare for a job interview",
+  "Teach me something new today",
+  "What's happening in sports right now?",
+  "Give me tips for better sleep",
+  "Help me brainstorm a business idea",
+];
+
+function getDailySuggestions(): string[] {
+  const seed = new Date().toDateString();
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) {
+    hash = ((hash << 5) - hash + seed.charCodeAt(i)) | 0;
+  }
+  const shuffled = [...SUGGESTION_POOL];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    hash = ((hash * 1103515245 + 12345) & 0x7fffffff);
+    const j = hash % (i + 1);
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled.slice(0, 4);
 }
 
 const ChatPage = () => {
@@ -43,10 +81,14 @@ const ChatPage = () => {
   const [showTools, setShowTools] = useState(false);
   const [pendingAttachments, setPendingAttachments] = useState<{ type: "image"; dataUrl: string; name: string }[]>([]);
   const [isRecording, setIsRecording] = useState(false);
+  const [suggestions] = useState(() => getDailySuggestions());
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
-  const recognitionRef = useRef<any>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+
+  const showSuggestions = messages.length === 1 && messages[0].id === "welcome";
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -73,47 +115,66 @@ const ChatPage = () => {
     setPendingAttachments(prev => prev.filter((_, i) => i !== index));
   };
 
-  const toggleRecording = () => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      toast.error("Speech recognition is not supported in this browser.");
-      return;
-    }
-
-    if (isRecording && recognitionRef.current) {
-      recognitionRef.current.stop();
+  const toggleRecording = async () => {
+    if (isRecording && mediaRecorderRef.current) {
+      mediaRecorderRef.current.stop();
       setIsRecording(false);
       return;
     }
 
-    const recognition = new SpeechRecognition();
-    recognition.continuous = false;
-    recognition.interimResults = true;
-    recognition.lang = "en-US";
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
+      audioChunksRef.current = [];
 
-    recognition.onresult = (event: any) => {
-      let transcript = "";
-      for (let i = 0; i < event.results.length; i++) {
-        transcript += event.results[i][0].transcript;
-      }
-      setInput(transcript);
-    };
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
 
-    recognition.onend = () => {
-      setIsRecording(false);
-    };
+      mediaRecorder.onstop = async () => {
+        stream.getTracks().forEach(t => t.stop());
+        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
 
-    recognition.onerror = (event: any) => {
-      console.error("Speech recognition error:", event.error);
-      setIsRecording(false);
-      if (event.error === "not-allowed") {
-        toast.error("Microphone access denied. Please allow microphone permissions.");
-      }
-    };
+        if (audioBlob.size < 1000) {
+          toast.error("Recording too short. Please try again.");
+          return;
+        }
 
-    recognitionRef.current = recognition;
-    recognition.start();
-    setIsRecording(true);
+        toast.info("Transcribing your voice...");
+        const formData = new FormData();
+        formData.append("audio", audioBlob, "recording.webm");
+
+        try {
+          const resp = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/transcribe`,
+            {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+              },
+              body: formData,
+            }
+          );
+          const data = await resp.json();
+          if (data.transcript) {
+            setInput(prev => (prev ? prev + " " : "") + data.transcript);
+            toast.success("Voice captured!");
+          } else {
+            toast.error(data.error || "Could not transcribe audio.");
+          }
+        } catch {
+          toast.error("Failed to transcribe. Please try again.");
+        }
+      };
+
+      mediaRecorderRef.current = mediaRecorder;
+      mediaRecorder.start();
+      setIsRecording(true);
+      toast.info("🎙️ Recording... Click again to stop.");
+    } catch (err: any) {
+      console.error("Microphone error:", err);
+      toast.error("Microphone access denied. Please allow microphone permissions in your browser settings.");
+    }
   };
 
   const sendMessage = async (text?: string) => {
@@ -333,6 +394,21 @@ const ChatPage = () => {
         <div ref={messagesEndRef} />
       </div>
 
+      {/* Suggestion chips */}
+      {showSuggestions && (
+        <div className="px-4 py-2 grid grid-cols-2 gap-2 animate-fade-in">
+          {suggestions.map((s, i) => (
+            <button
+              key={i}
+              onClick={() => sendMessage(s)}
+              className="text-left px-3 py-2.5 rounded-xl glass-panel hover:neon-border-cyan transition-all duration-200 active:scale-95 group"
+            >
+              <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors leading-tight line-clamp-2">{s}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Tools button */}
       <div className="px-4 py-1.5 flex items-center justify-center">
         <button
@@ -370,7 +446,7 @@ const ChatPage = () => {
           </button>
           <button onClick={toggleRecording}
             className={`p-2 rounded-full transition-all ${isRecording ? "text-destructive bg-destructive/15 animate-pulse" : "text-muted-foreground hover:text-foreground hover:bg-muted/30"}`}>
-            {isRecording ? <MicOff size={16} /> : <Mic size={16} />}
+            {isRecording ? <Square size={16} /> : <Mic size={16} />}
           </button>
           <input type="text" className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none px-1"
             placeholder="Ask anything…" value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === "Enter" && sendMessage()} />
