@@ -270,7 +270,7 @@ const ChatPage = () => {
         </div>
       </div>
 
-      {showGatekeep && <GatekeepingPopup onClose={() => setShowGatekeep(false)} onSignIn={() => { setShowGatekeep(false); navigate("/login"); }} />}
+      {showGatekeep && <GatekeepingPopup onClose={() => setShowGatekeep(false)} onSignIn={() => { setShowGatekeep(false); navigate("/join"); }} />}
       <ToolsPopup open={showTools} onClose={() => setShowTools(false)} onSelectTool={(label) => { setInput(prev => prev ? `${label}: ${prev}` : `${label}: `); }} />
 
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
