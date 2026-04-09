@@ -1,24 +1,22 @@
-import { useEffect } from "react";
 import { Zap } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import apexbotLogo from "@/assets/apexbot-logo.jpeg";
 
 const WelcomePage = () => {
   const navigate = useNavigate();
   const { user, profile, loading } = useAuth();
 
-  // Auto-redirect signed-in users with complete profile
-  useEffect(() => {
-    if (!loading && user && profile && profile.name && profile.purpose) {
-      navigate("/home", { replace: true });
-    }
-  }, [loading, user, profile, navigate]);
-
   const handleGetStarted = () => {
     if (loading) return;
+    // Authenticated user with complete profile → go straight to home
     if (user && profile && profile.name && profile.purpose) {
       navigate("/home");
+    } else if (user) {
+      // Authenticated but incomplete profile → home anyway (they already have account)
+      navigate("/home");
     } else {
+      // Guest / new user → onboarding
       navigate("/onboarding");
     }
   };
@@ -31,9 +29,7 @@ const WelcomePage = () => {
         style={{ background: "radial-gradient(circle, hsl(var(--purple-glow) / 0.4), transparent 70%)", animation: "floatOrb 10s ease-in-out infinite reverse" }} />
 
       <div className="relative z-10 flex flex-col items-center text-center animate-fade-in-up">
-        <div className="w-20 h-20 rounded-2xl bg-primary/10 border border-primary/30 flex items-center justify-center mb-8 animate-glow-pulse">
-          <Zap size={36} className="text-primary" />
-        </div>
+        <img src={apexbotLogo} alt="ApexBot AI" className="w-20 h-20 rounded-2xl border border-primary/30 mb-8 animate-glow-pulse object-cover" />
         <h1 className="font-display text-3xl md:text-4xl text-foreground mb-2 tracking-wide">
           ApexBot <span className="neon-text-cyan">AI</span> Assistant
         </h1>

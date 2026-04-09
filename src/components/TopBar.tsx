@@ -1,18 +1,19 @@
 import { useState } from "react";
-import { Zap, Settings, LogIn, LogOut, Info } from "lucide-react";
+import { Settings, UserPlus, UserX, Info } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import SignOutConfirmDialog from "./SignOutConfirmDialog";
+import apexbotLogo from "@/assets/apexbot-logo.jpeg";
 
 const TopBar = () => {
   const navigate = useNavigate();
   const { user, profile, signOut } = useAuth();
-  const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
+  const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
 
-  const handleSignOut = async () => {
+  const handleRemoveAccount = async () => {
     await signOut();
     localStorage.removeItem("guest_profile");
-    setShowSignOutConfirm(false);
+    setShowRemoveConfirm(false);
     navigate("/");
   };
 
@@ -23,7 +24,7 @@ const TopBar = () => {
       <header className="fixed top-0 left-0 right-0 z-40 glass-panel-strong rounded-none border-x-0 border-t-0">
         <div className="flex items-center justify-between h-14 px-4 max-w-5xl mx-auto">
           <button onClick={() => navigate("/home")} className="flex items-center gap-2">
-            <Zap size={18} className="text-primary" />
+            <img src={apexbotLogo} alt="ApexBot" className="w-6 h-6 rounded-md object-cover" />
             <span className="font-display text-sm tracking-widest neon-text-cyan">APEXBOT</span>
             <span className="text-[10px] font-mono text-muted-foreground bg-primary/10 px-1.5 py-0.5 rounded border border-primary/20">V10</span>
           </button>
@@ -50,11 +51,11 @@ const TopBar = () => {
                   <span className="hidden sm:inline">{displayName}</span>
                 </button>
                 <button
-                  onClick={() => setShowSignOutConfirm(true)}
+                  onClick={() => setShowRemoveConfirm(true)}
                   className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors px-2 py-1.5 rounded-md hover:bg-muted/50"
                 >
-                  <LogOut size={14} />
-                  <span>Sign Out</span>
+                  <UserX size={14} />
+                  <span>Remove Account</span>
                 </button>
               </>
             ) : (
@@ -62,7 +63,7 @@ const TopBar = () => {
                 onClick={() => navigate("/join")}
                 className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 transition-colors px-3 py-1.5 rounded-md hover:bg-primary/10 border border-primary/30"
               >
-                <LogIn size={14} />
+                <UserPlus size={14} />
                 <span>Create Account</span>
               </button>
             )}
@@ -77,9 +78,9 @@ const TopBar = () => {
       </header>
 
       <SignOutConfirmDialog
-        open={showSignOutConfirm}
-        onCancel={() => setShowSignOutConfirm(false)}
-        onConfirm={handleSignOut}
+        open={showRemoveConfirm}
+        onCancel={() => setShowRemoveConfirm(false)}
+        onConfirm={handleRemoveAccount}
       />
     </>
   );

@@ -23,9 +23,9 @@ const SignOutConfirmDialog = ({ open, onCancel, onConfirm }: SignOutConfirmDialo
             <AlertTriangle size={24} className="text-destructive" />
           </div>
 
-          <h2 className="font-display text-lg text-foreground mb-2">Sign Out of ApexBot?</h2>
+          <h2 className="font-display text-lg text-foreground mb-2">Remove Account from ApexBot?</h2>
           <p className="text-muted-foreground text-sm leading-relaxed mb-6">
-            Signing out will end your current session and remove your saved profile from this device. You'll need to sign in again to access your enhanced experience.
+            Removing your account will end your current session and delete your saved profile from this device. You'll need to create a new account to access your enhanced experience again.
           </p>
 
           <div className="space-y-2.5">
@@ -33,7 +33,7 @@ const SignOutConfirmDialog = ({ open, onCancel, onConfirm }: SignOutConfirmDialo
               onClick={onConfirm}
               className="w-full py-3 rounded-lg text-sm font-semibold bg-destructive/90 text-destructive-foreground hover:bg-destructive transition-colors"
             >
-              Yes, Sign Me Out
+              Yes, Remove My Account
             </button>
             <button
               onClick={onCancel}

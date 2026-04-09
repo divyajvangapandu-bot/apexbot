@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
-import { Search, PenTool, FileText, Languages, Lightbulb, MessageSquare, Zap } from "lucide-react";
+import { Search, PenTool, FileText, Languages, Lightbulb, MessageSquare } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import apexbotLogo from "@/assets/apexbot-logo.jpeg";
 
 const quickActions = [
   { icon: Search, label: "Smart Search", color: "text-primary" },
@@ -44,9 +45,7 @@ const HomePage = () => {
   return (
     <div className="min-h-screen pt-14 pb-20 px-4 nebula-gradient animate-page-enter">
       <div className="flex flex-col items-center justify-center pt-16 pb-12 text-center">
-        <div className="w-16 h-16 rounded-2xl bg-primary/10 border border-primary/30 flex items-center justify-center mb-6 animate-glow-pulse">
-          <Zap size={28} className="text-primary" />
-        </div>
+        <img src={apexbotLogo} alt="ApexBot" className="w-16 h-16 rounded-2xl border border-primary/30 mb-6 animate-glow-pulse object-cover" />
         <h1 className="font-display text-2xl md:text-3xl text-foreground mb-2 tracking-wide animate-fade-in-up">
           ApexBot <span className="neon-text-cyan">v10</span>
         </h1>

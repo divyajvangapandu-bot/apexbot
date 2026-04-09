@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Shield, Zap, ArrowLeft, Check } from "lucide-react";
+import { Shield, ArrowLeft, Check } from "lucide-react";
+import apexbotLogo from "@/assets/apexbot-logo.jpeg";
 
 const PURPOSE_OPTIONS = [
   "Research & Learning",
@@ -168,8 +169,8 @@ const OnboardingPage = () => {
                   className="w-full group relative overflow-hidden rounded-xl border border-border/50 p-5 text-left transition-all duration-300 hover:border-muted-foreground/40 hover:bg-muted/20 hover-bounce animate-slide-up"
                   style={{ animationDelay: "100ms" }}>
                   <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-muted/30 border border-border/50 flex items-center justify-center shrink-0">
-                      <Zap size={22} className="text-muted-foreground group-hover:text-foreground transition-colors" />
+                    <div className="w-12 h-12 rounded-xl bg-muted/30 border border-border/50 flex items-center justify-center shrink-0 overflow-hidden">
+                      <img src={apexbotLogo} alt="ApexBot" className="w-full h-full object-cover rounded-xl" />
                     </div>
                     <div>
                       <span className="font-display text-base text-foreground tracking-wide">Continue as Guest</span>
