@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { Zap, ArrowLeft } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
+import apexbotLogo from "@/assets/apexbot-logo.jpeg";
 
 const LoginPage = () => {
   const [email, setEmail] = useState("");
@@ -32,9 +33,7 @@ const LoginPage = () => {
         </button>
       </div>
 
-      <div className="w-12 h-12 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center mb-6">
-        <Zap size={22} className="text-primary" />
-      </div>
+      <img src={apexbotLogo} alt="ApexBot" className="w-12 h-12 rounded-xl border border-primary/30 mb-6 object-cover" />
       <h1 className="font-display text-2xl tracking-wider text-foreground mb-1">Log In</h1>
       <p className="text-sm text-muted-foreground mb-8">Welcome back to ApexBot</p>
 

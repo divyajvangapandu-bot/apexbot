@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { User, Edit3, SlidersHorizontal, LogOut, LogIn, Save, X } from "lucide-react";
+import { User, Edit3, SlidersHorizontal, UserX, UserPlus, Save, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
+import SignOutConfirmDialog from "@/components/SignOutConfirmDialog";
 
 const PURPOSE_OPTIONS = [
   "Learning & Education",
@@ -30,8 +31,8 @@ const ProfilePage = () => {
   const navigate = useNavigate();
   const { user, profile, signOut, updateProfile } = useAuth();
   const isSignedIn = !!user;
+  const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
 
-  // Guest profile from localStorage
   const guestProfile = (() => { try { return JSON.parse(localStorage.getItem("guest_profile") || "{}"); } catch { return {}; } })();
   const userName = profile?.name || guestProfile?.name || "Guest";
   const userPurpose = profile?.purpose || guestProfile?.mission || "";
@@ -40,8 +41,10 @@ const ProfilePage = () => {
   const [editName, setEditName] = useState(userName);
   const [editPurpose, setEditPurpose] = useState(userPurpose);
 
-  const handleSignOut = async () => {
+  const handleRemoveAccount = async () => {
     await signOut();
+    localStorage.removeItem("guest_profile");
+    setShowRemoveConfirm(false);
     navigate("/");
   };
 
@@ -51,7 +54,6 @@ const ProfilePage = () => {
     if (isSignedIn) {
       await updateProfile({ name: editName.trim(), purpose: editPurpose });
     } else {
-      // Save for guest in localStorage
       const existing = guestProfile;
       localStorage.setItem("guest_profile", JSON.stringify({ ...existing, name: editName.trim(), mission: editPurpose }));
     }
@@ -109,7 +111,6 @@ const ProfilePage = () => {
           </div>
         ) : (
           <div className="space-y-1.5 mb-10 stagger-children">
-            {/* Edit Profile for BOTH guest and signed-in */}
             <button onClick={startEditing}
               className="w-full flex items-center gap-3 p-4 rounded-lg glass-panel hover:neon-border-cyan transition-all duration-200 text-left hover-bounce animate-slide-up active:scale-[0.98]">
               <Edit3 size={16} className="text-primary" />
@@ -130,20 +131,19 @@ const ProfilePage = () => {
         )}
 
         {isSignedIn ? (
-          <button onClick={handleSignOut}
-            className="w-full flex items-center justify-center gap-2 p-4 rounded-lg border border-destructive/30 text-destructive hover:bg-destructive/10 transition-colors active:scale-[0.98] hover-bounce animate-slide-up">
-            <LogOut size={16} /><span className="text-sm font-medium">Log Out</span>
-          </button>
+          <>
+            <button onClick={() => { playClick(); setShowRemoveConfirm(true); }}
+              className="w-full flex items-center justify-center gap-2 p-4 rounded-lg border border-destructive/30 text-destructive hover:bg-destructive/10 transition-colors active:scale-[0.98] hover-bounce animate-slide-up">
+              <UserX size={16} /><span className="text-sm font-medium">Remove Account</span>
+            </button>
+            <SignOutConfirmDialog open={showRemoveConfirm} onCancel={() => setShowRemoveConfirm(false)} onConfirm={handleRemoveAccount} />
+          </>
         ) : (
           <div className="space-y-3 animate-slide-up">
             <button onClick={() => { playClick(); navigate("/join"); }}
               className="w-full cyber-button flex items-center justify-center gap-2 py-4 hover-bounce">
-              <LogIn size={16} /><span>Create an Account</span>
+              <UserPlus size={16} /><span>Create an Account</span>
             </button>
-            <p className="text-center text-[11px] text-muted-foreground">
-              Already have an account?{" "}
-              <button onClick={() => navigate("/login")} className="text-primary hover:underline">Sign In</button>
-            </p>
           </div>
         )}
       </div>
