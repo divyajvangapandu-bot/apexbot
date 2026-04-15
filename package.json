@@ -2,15 +2,9 @@
   "name": "vite_react_shadcn_ts",
   "private": true,
   "version": "0.0.0",
-  {
-  "name": "apexbot",
-  "version": "0.1.0",
-  "homepage": "https://github.io",
-  "dependencies": { ... }
-}
 
-  "type": "module",
-  "scripts": {
+    "type": "module",
+    "scripts": {
     "dev": "vite",
     "build": "vite build",
     "build:dev": "vite build --mode development",
