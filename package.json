@@ -2,6 +2,13 @@
   "name": "vite_react_shadcn_ts",
   "private": true,
   "version": "0.0.0",
+  {
+  "name": "apexbot",
+  "version": "0.1.0",
+  "homepage": "https://github.io",
+  "dependencies": { ... }
+}
+
   "type": "module",
   "scripts": {
     "dev": "vite",
