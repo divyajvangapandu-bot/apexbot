@@ -36,6 +36,8 @@ const Index = () => {
       <Route path="/history" element={<><TopBar /><HistoryPage /><BottomNav /><BrainBoxFooter /></>} />
       <Route path="/profile" element={<><TopBar /><ProfilePage /><BottomNav /><BrainBoxFooter /></>} />
       <Route path="/settings" element={<><TopBar /><SettingsPage /><BottomNav /><BrainBoxFooter /></>} />
+
+      <Route path="*" element={<WelcomePage />} />
     </Routes>
   );
 };
